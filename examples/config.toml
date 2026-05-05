@@ -1,0 +1,56 @@
+# Example cairn configuration — copy and edit (do not commit secrets).
+#
+# Default config paths when --config is omitted:
+#   Linux:   $XDG_CONFIG_HOME/cairn/config.toml (often ~/.config/cairn/config.toml)
+#   macOS:   ~/Library/Application Support/cairn/config.toml
+#   Windows: %APPDATA%\cairn\config.toml
+
+# Stable machine id visible in S3 keys ([a-z0-9._-]{1,64}). Override hostname default
+# if you do not want hostname leaked to anyone who can ListBucket.
+host_id = "laptop-01"
+
+# Grace period before deleting uncommitted snapshot prefixes (no manifest.age yet).
+cleanup_grace = "24h"
+
+[s3]
+bucket  = "my-cairn-backups"
+region  = "us-west-2"
+# Default PUT storage class; override per run: cairn backup cfg.toml --storage-class STANDARD
+storage_class = "STANDARD_IA"
+# Credentials: AWS SDK default chain only (env, ~/.aws/credentials, SSO, IMDS).
+# Never put secrets in this file.
+
+[encryption]
+# At least one PQ hybrid recipient (age v1.3+). Classical age1... recipients are rejected.
+recipients = [
+  "age1pq1REPLACE_ME",
+  # Optional offline / secondary key:
+  # "age1pq1...",
+  # Hardware-backed hybrid:
+  # "age1tagpq1...",
+]
+# Restore / verify / snapshots / prune read this identity. Env CAIRN_IDENTITY_FILE wins.
+identity_file = "${HOME}/.config/cairn/identity.age"
+
+[backup]
+# One or more trees; each becomes a manifest source_root (POSIX paths; Windows paths OK).
+source_roots = [
+  "/home/you/Documents",
+]
+
+# Worker goroutines for uploads (restore/verify honor --parallelism or this default).
+parallelism = 8
+
+# Symlinks: true = record symlink; false = follow and back up target bytes.
+follow_symlinks = true
+
+# Gitignore-style patterns for all roots (combined with .cairnignore inside trees).
+excludes = [
+  "**/node_modules/**",
+  "**/.cache/**",
+  "**/.venv/**",
+  "*.log",
+]
+
+# Allow-list; empty means "everything not excluded".
+includes = []

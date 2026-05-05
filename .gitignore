@@ -1,0 +1,11 @@
+/bin/
+/dist/
+*.exe
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+.idea/
+.vscode/
+*.swp
+.DS_Store

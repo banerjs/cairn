@@ -121,6 +121,10 @@ Windows Task Scheduler: run `cairn.exe backup C:\Users\you\AppData\Roaming\cairn
 - [docs/implementation-plan.md](docs/implementation-plan.md) — checklist  
 - [docs/dependency-audit.md](docs/dependency-audit.md) — third-party rationale  
 
+## Coverage badge (maintainers)
+
+Codecov needs the repo **upload token** (Codecov → repo → Settings → Upload token) stored as GitHub Actions secret **`CODECOV_TOKEN`**. Upload runs on pushes and same-repo PRs; fork PRs skip it (secrets are not available there).
+
 ## License
 
 [MIT](LICENSE)

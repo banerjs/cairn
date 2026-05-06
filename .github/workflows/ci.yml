@@ -22,9 +22,6 @@ jobs:
 
   coverage:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -35,13 +32,12 @@ jobs:
           go test ./... -coverprofile=coverage.out -covermode=atomic
           go tool cover -func=coverage.out | tail -3
       - name: Upload coverage to Codecov
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: codecov/codecov-action@v5
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.out
           fail_ci_if_error: false
-          use_oidc: true
-          git_service: github
-          slug: ${{ github.repository }}
 
   lint:
     runs-on: ubuntu-latest

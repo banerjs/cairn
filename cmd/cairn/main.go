@@ -28,15 +28,21 @@ import (
 )
 
 func main() {
-	os.Exit(run())
+	os.Exit(run(os.Args))
 }
 
-func run() int {
-	if len(os.Args) < 2 {
+// openStoreHook is swapped in tests to avoid live AWS calls.
+var openStoreHook = defaultOpenStore
+
+// getenv is swapped in tests for identity file resolution.
+var getenv = os.Getenv
+
+func run(argv []string) int {
+	if len(argv) < 2 {
 		usage()
 		return 1
 	}
-	sub := os.Args[1]
+	sub := argv[1]
 	switch sub {
 	case "-h", "--help", "help":
 		usage()
@@ -54,7 +60,7 @@ func run() int {
 		fs := flag.NewFlagSet("keygen", flag.ExitOnError)
 		fs.SetOutput(os.Stderr)
 		out := fs.String("output", "", "write new identity here")
-		if err := fs.Parse(os.Args[2:]); err != nil {
+		if err := fs.Parse(argv[2:]); err != nil {
 			return 1
 		}
 		if *out == "" {
@@ -70,18 +76,18 @@ func run() int {
 		return 0
 
 	case "backup":
-		if len(os.Args) < 3 {
+		if len(argv) < 3 {
 			fmt.Fprintln(os.Stderr, "backup: <config.toml> required")
 			return 1
 		}
-		cfgPath := os.Args[2]
+		cfgPath := argv[2]
 		fs := flag.NewFlagSet("backup", flag.ExitOnError)
 		fs.SetOutput(os.Stderr)
 		sc := fs.String("storage-class", "", "override [s3].storage_class")
 		p := fs.Int("parallelism", 0, "workers (0 = config)")
 		v := fs.Bool("v", false, "info logs")
 		vv := fs.Bool("vv", false, "debug logs")
-		if err := fs.Parse(os.Args[3:]); err != nil {
+		if err := fs.Parse(argv[3:]); err != nil {
 			return 1
 		}
 		log := loggerFromVerbosity(*v, *vv)
@@ -95,7 +101,7 @@ func run() int {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
-		st, err := openStore(ctx, cfg)
+		st, err := openStoreHook(ctx, cfg)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
@@ -114,7 +120,7 @@ func run() int {
 		p := fs.Int("parallelism", 0, "workers (0 = config)")
 		v := fs.Bool("v", false, "")
 		vv := fs.Bool("vv", false, "")
-		if err := fs.Parse(os.Args[2:]); err != nil {
+		if err := fs.Parse(argv[2:]); err != nil {
 			return 1
 		}
 		args := fs.Args()
@@ -132,7 +138,7 @@ func run() int {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
-		idPath, err := ageutil.IdentityPath(os.Getenv("CAIRN_IDENTITY_FILE"), cfg.Encryption.IdentityFile)
+		idPath, err := ageutil.IdentityPath(getenv("CAIRN_IDENTITY_FILE"), cfg.Encryption.IdentityFile)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
@@ -142,7 +148,7 @@ func run() int {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
-		st, err := openStore(ctx, cfg)
+		st, err := openStoreHook(ctx, cfg)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
@@ -160,7 +166,7 @@ func run() int {
 		host := fs.String("host", "", "filter host")
 		v := fs.Bool("v", false, "")
 		vv := fs.Bool("vv", false, "")
-		if err := fs.Parse(os.Args[2:]); err != nil {
+		if err := fs.Parse(argv[2:]); err != nil {
 			return 1
 		}
 		log := loggerFromVerbosity(*v, *vv)
@@ -174,11 +180,11 @@ func run() int {
 			return 1
 		}
 		var ids []age.Identity
-		idPath, err := ageutil.IdentityPath(os.Getenv("CAIRN_IDENTITY_FILE"), cfg.Encryption.IdentityFile)
+		idPath, err := ageutil.IdentityPath(getenv("CAIRN_IDENTITY_FILE"), cfg.Encryption.IdentityFile)
 		if err == nil {
 			ids, _ = ageutil.LoadIdentities(idPath)
 		}
-		st, err := openStore(ctx, cfg)
+		st, err := openStoreHook(ctx, cfg)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
@@ -196,7 +202,7 @@ func run() int {
 		sample := fs.Int("sample", 10, "0 = verify all regular files")
 		v := fs.Bool("v", false, "")
 		vv := fs.Bool("vv", false, "")
-		if err := fs.Parse(os.Args[2:]); err != nil {
+		if err := fs.Parse(argv[2:]); err != nil {
 			return 1
 		}
 		args := fs.Args()
@@ -214,7 +220,7 @@ func run() int {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
-		idPath, err := ageutil.IdentityPath(os.Getenv("CAIRN_IDENTITY_FILE"), cfg.Encryption.IdentityFile)
+		idPath, err := ageutil.IdentityPath(getenv("CAIRN_IDENTITY_FILE"), cfg.Encryption.IdentityFile)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
@@ -224,7 +230,7 @@ func run() int {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
-		st, err := openStore(ctx, cfg)
+		st, err := openStoreHook(ctx, cfg)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
@@ -244,7 +250,7 @@ func run() int {
 		dry := fs.Bool("dry-run", false, "")
 		v := fs.Bool("v", false, "")
 		vv := fs.Bool("vv", false, "")
-		if err := fs.Parse(os.Args[2:]); err != nil {
+		if err := fs.Parse(argv[2:]); err != nil {
 			return 1
 		}
 		log := loggerFromVerbosity(*v, *vv)
@@ -261,7 +267,7 @@ func run() int {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
-		st, err := openStore(ctx, cfg)
+		st, err := openStoreHook(ctx, cfg)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
@@ -277,7 +283,7 @@ func run() int {
 		fs.SetOutput(os.Stderr)
 		outDir := fs.String("output", "", "directory to write FORMAT.md and hints")
 		cfgPath := fs.String("config", "", "optional config for bucket hints and public recipients")
-		if err := fs.Parse(os.Args[2:]); err != nil {
+		if err := fs.Parse(argv[2:]); err != nil {
 			return 1
 		}
 		if *outDir == "" {
@@ -308,7 +314,7 @@ func run() int {
 		showCost := fs.Bool("show-cost", false, "")
 		v := fs.Bool("v", false, "")
 		vv := fs.Bool("vv", false, "")
-		if err := fs.Parse(os.Args[2:]); err != nil {
+		if err := fs.Parse(argv[2:]); err != nil {
 			return 1
 		}
 		log := loggerFromVerbosity(*v, *vv)
@@ -321,7 +327,7 @@ func run() int {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
-		st, err := openStore(ctx, cfg)
+		st, err := openStoreHook(ctx, cfg)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
@@ -371,7 +377,7 @@ func loggerFromVerbosity(v, vv bool) *slog.Logger {
 	return slog.New(h)
 }
 
-func openStore(ctx context.Context, cfg *appcfg.Config) (*s3store.Store, error) {
+func defaultOpenStore(ctx context.Context, cfg *appcfg.Config) (*s3store.Store, error) {
 	awscfg, err := awsconfig.Load(ctx, cfg.S3.Region)
 	if err != nil {
 		return nil, err

@@ -1,5 +1,8 @@
 # Cairn
 
+[![CI](https://github.com/banerjs/cairn/actions/workflows/ci.yml/badge.svg)](https://github.com/banerjs/cairn/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/banerjs/cairn/graph/badge.svg)](https://codecov.io/gh/banerjs/cairn)
+
 Personal, zero-trust backups to **Amazon S3**. Files are streamed **`read → SHA-256 → zstd → age → S3`**. The bucket sees only opaque ciphertext under random object IDs inside the `cairn/v1/` layout.
 
 - **Post-quantum age only** for recipients: `age1pq1...` / `age1tagpq1...` (hybrid ML-KEM + X25519 / hardware-backed variants via `filippo.io/age` v1.3+).
@@ -16,9 +19,11 @@ Requires **Go 1.25+** (see `go.mod`).
 go install github.com/banerjs/cairn/cmd/cairn@latest
 # or from clone:
 go build -o cairn ./cmd/cairn
+# or (trimmed release-style binary for this machine):
+make build   # writes ./bin/cairn
 ```
 
- Makefile targets: `make fmt`, `make lint`, `make test`, `make integration` (Docker), `make build-all`.
+ Makefile targets: `make fmt`, `make lint`, `make test`, `make integration` (Docker), `make build` (native binary in `./bin/cairn`), `make build-all`, `make terraform-lint` (Terraform fmt-check + validate under `infra/terraform/`).
 
 ## Quick start
 

@@ -7,6 +7,17 @@ Minimal bucket + IAM setup matching the cairn design: versioning, SSE-S3, public
 - Terraform >= 1.5
 - AWS credentials with permission to create S3 buckets and IAM users/policies
 
+## Lint (optional)
+
+From the repository root:
+
+```bash
+make terraform-lint          # terraform fmt -check + validate
+make terraform-tflint        # tflint --init && tflint (requires the tflint CLI)
+```
+
+CI runs the same checks on every push and PR.
+
 ## Apply
 
 ```bash
@@ -36,9 +47,19 @@ After apply:
 ```bash
 terraform output access_key_id
 terraform output -raw secret_access_key
+terraform output -raw aws_region
 ```
 
-Configure `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` (or `~/.aws/credentials`) on backup hosts. **Never commit secrets.**
+To load those values into a local AWS CLI profile (default profile name `cairn`):
+
+```bash
+./scripts/export-cairn-aws-profile.sh
+export AWS_PROFILE=cairn
+```
+
+Override with `CAIRN_AWS_PROFILE` / `CAIRN_TERRAFORM_DIR` if needed.
+
+Configure `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` (or `~/.aws/credentials`) on backup hosts. **Never commit secrets or Terraform state** (`.gitignore` excludes `*.tfstate*`; use remote state with encryption for teams).
 
 ### Rotate keys
 

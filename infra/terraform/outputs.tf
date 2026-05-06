@@ -1,3 +1,8 @@
+output "aws_region" {
+  description = "AWS region used for the bucket and IAM entities."
+  value       = var.aws_region
+}
+
 output "bucket_name" {
   description = "S3 bucket used by cairn."
   value       = aws_s3_bucket.cairn.bucket

@@ -7,11 +7,14 @@ import (
 	"time"
 )
 
+// randRead is swapped in tests to exercise the error path.
+var randRead = rand.Read
+
 // New returns a sortable snapshot ID: YYYYMMDDTHHMMSSZ-xxxxxxxx (8 hex random).
 func New() (string, error) {
 	ts := time.Now().UTC().Format("20060102T150405Z")
 	var rb [4]byte
-	if _, err := rand.Read(rb[:]); err != nil {
+	if _, err := randRead(rb[:]); err != nil {
 		return "", fmt.Errorf("snapshot id: %w", err)
 	}
 	sfx := binary.BigEndian.Uint32(rb[:])

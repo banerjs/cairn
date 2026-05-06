@@ -147,6 +147,21 @@ source_roots = [%q]
 	}
 }
 
+func TestPickRandomIndices(t *testing.T) {
+	if s := pickRandomIndices(0, 5); len(s) != 0 {
+		t.Fatalf("got %#v", s)
+	}
+	if s := pickRandomIndices(5, 0); len(s) != 0 {
+		t.Fatalf("got %#v", s)
+	}
+	if s := pickRandomIndices(3, 10); len(s) != 3 {
+		t.Fatalf("got %#v", s)
+	}
+	if s := pickRandomIndices(10, 3); len(s) != 3 {
+		t.Fatalf("got %#v", s)
+	}
+}
+
 func TestVerifyMissingObject(t *testing.T) {
 	ctx := context.Background()
 	id, err := age.GenerateHybridIdentity()

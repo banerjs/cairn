@@ -19,6 +19,17 @@ jobs:
           go-version-file: go.mod
       - name: Test
         run: go test ./...
+      - name: Coverage summary (per-package gate: scripts/check-coverage.sh, COVERAGE_MIN=100)
+        if: runner.os == 'Linux'
+        run: |
+          go test ./... -coverprofile=coverage.out -covermode=atomic
+          go tool cover -func=coverage.out | tail -3
+      - name: Upload coverage to Codecov
+        if: runner.os == 'Linux'
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.out
+          fail_ci_if_error: false
 
   lint:
     runs-on: ubuntu-latest
@@ -30,6 +41,32 @@ jobs:
       - uses: golangci/golangci-lint-action@v6
         with:
           version: v2.12.1
+
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.2
+          terraform_wrapper: false
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: v0.61.0
+      - name: Terraform fmt
+        working-directory: infra/terraform
+        run: terraform fmt -check -recursive
+      - name: Terraform init
+        working-directory: infra/terraform
+        run: terraform init -input=false -no-color
+      - name: Terraform validate
+        working-directory: infra/terraform
+        run: terraform validate -no-color
+      - name: TFLint
+        working-directory: infra/terraform
+        run: |
+          tflint --init -no-color
+          tflint --no-color
 
   integration:
     runs-on: ubuntu-latest

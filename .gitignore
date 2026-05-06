@@ -1,10 +1,16 @@
 /bin/
 /dist/
 *.exe
+
+# Terraform — state can contain secrets (access keys, etc.); never commit it.
 .terraform/
+.terraform.tfstate.lock.info
 *.tfstate
 *.tfstate.*
+*.tfplan
 crash.log
+crash.*.log
+
 .idea/
 .vscode/
 *.swp

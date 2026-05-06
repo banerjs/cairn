@@ -504,6 +504,23 @@ func TestRun_Verify_Success_Stubs(t *testing.T) {
 	}
 }
 
+func TestRun_Verify_FlagsAfterSnapshotID(t *testing.T) {
+	cfg := mustWriteConfig(t, restoreCfgBody(t, mustWriteIdentity(t)))
+	prevO := openStoreHook
+	prevV := verifyRunHook
+	openStoreHook = func(context.Context, *appcfg.Config) (*s3store.Store, error) { return nil, nil }
+	verifyRunHook = func(context.Context, *appcfg.Config, verifycmd.VerifyStore, []age.Identity, string, int, *slog.Logger) error {
+		return nil
+	}
+	defer func() {
+		openStoreHook = prevO
+		verifyRunHook = prevV
+	}()
+	if code := run([]string{"cairn", "verify", "mysnap", "--config", cfg, "-v"}); code != 0 {
+		t.Fatalf("code=%d", code)
+	}
+}
+
 func TestRun_Prune_BadFlag(t *testing.T) {
 	cfg := mustWriteConfig(t, baseCfgToml(t))
 	if code := run([]string{"cairn", "prune", "--config", cfg, "--keep-last", "2", "--nope"}); code != 1 {

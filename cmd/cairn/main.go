@@ -153,7 +153,7 @@ func run(argv []string) int {
 		p := fs.Int("parallelism", 0, "workers (0 = config)")
 		v := fs.Bool("v", false, "")
 		vv := fs.Bool("vv", false, "")
-		if err := fs.Parse(argv[2:]); err != nil {
+		if err := fs.Parse(reorderFlagsBeforePositionals(argv[2:], commandValuedRestoreFlags)); err != nil {
 			return 1
 		}
 		args := fs.Args()
@@ -198,7 +198,7 @@ func run(argv []string) int {
 		host := fs.String("host", "", "filter host")
 		v := fs.Bool("v", false, "")
 		vv := fs.Bool("vv", false, "")
-		if err := fs.Parse(argv[2:]); err != nil {
+		if err := fs.Parse(reorderFlagsBeforePositionals(argv[2:], commandValuedSnapshotsFlags)); err != nil {
 			return 1
 		}
 		log := loggerFromVerbosity(*v, *vv)
@@ -233,7 +233,7 @@ func run(argv []string) int {
 		sample := fs.Int("sample", 10, "0 = verify all regular files")
 		v := fs.Bool("v", false, "")
 		vv := fs.Bool("vv", false, "")
-		if err := fs.Parse(argv[2:]); err != nil {
+		if err := fs.Parse(reorderFlagsBeforePositionals(argv[2:], commandValuedVerifyFlags)); err != nil {
 			return 1
 		}
 		args := fs.Args()
@@ -280,7 +280,7 @@ func run(argv []string) int {
 		dry := fs.Bool("dry-run", false, "")
 		v := fs.Bool("v", false, "")
 		vv := fs.Bool("vv", false, "")
-		if err := fs.Parse(argv[2:]); err != nil {
+		if err := fs.Parse(reorderFlagsBeforePositionals(argv[2:], commandValuedPruneFlags)); err != nil {
 			return 1
 		}
 		log := loggerFromVerbosity(*v, *vv)
@@ -312,7 +312,7 @@ func run(argv []string) int {
 		fs := newFlagSet("export-recovery-kit")
 		outDir := fs.String("output", "", "directory to write FORMAT.md and hints")
 		cfgPath := fs.String("config", "", "optional config for bucket hints and public recipients")
-		if err := fs.Parse(argv[2:]); err != nil {
+		if err := fs.Parse(reorderFlagsBeforePositionals(argv[2:], commandValuedExportRecoveryKitFlags)); err != nil {
 			return 1
 		}
 		if *outDir == "" {
@@ -342,7 +342,7 @@ func run(argv []string) int {
 		showCost := fs.Bool("show-cost", false, "")
 		v := fs.Bool("v", false, "")
 		vv := fs.Bool("vv", false, "")
-		if err := fs.Parse(argv[2:]); err != nil {
+		if err := fs.Parse(reorderFlagsBeforePositionals(argv[2:], commandValuedStatusFlags)); err != nil {
 			return 1
 		}
 		log := loggerFromVerbosity(*v, *vv)

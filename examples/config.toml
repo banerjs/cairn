@@ -5,8 +5,9 @@
 #   macOS:   ~/Library/Application Support/cairn/config.toml
 #   Windows: %APPDATA%\cairn\config.toml
 
-# Stable machine id visible in S3 keys ([a-z0-9._-]{1,64}). Override hostname default
-# if you do not want hostname leaked to anyone who can ListBucket.
+# Stable machine id visible in S3 keys ([a-z0-9._-]{1,64}). If omitted, derived from
+# the OS hostname (slugified). Override if you do not want hostname-derived metadata
+# visible to anyone who can ListBucket.
 host_id = "laptop-01"
 
 # Grace period before deleting uncommitted snapshot prefixes (no manifest.age yet).

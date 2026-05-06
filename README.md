@@ -131,7 +131,7 @@ Windows Task Scheduler: run `cairn.exe backup C:\Users\you\AppData\Roaming\cairn
 
 - **Bucket operator / AWS admin** can delete or replace objects, enumerate approximate sizes and storage classes, and infer **host id** and **snapshot timestamps** from key names. They cannot decrypt without age keys.
 - **Compromised backup host** during a run could refuse to back up, corrupt local sources before read, or exfiltrate plaintext — backups do not prevent live host compromise.
-- **Metadata leakage:** `host_id` defaults to hostname unless overridden; snapshot IDs are time-sortable.
+- **Metadata leakage:** If `host_id` is omitted, it is derived from the OS hostname by slugifying to the allowed id format; an explicit `host_id` is validated as-is. Snapshot IDs are time-sortable.
 - **No ransomware-only rollback guarantee** without **S3 versioning** + lifecycle discipline (enabled in reference Terraform). Versioning helps recover from malicious deletes/overwrites if detected in time.
 
 **Operational mitigations**

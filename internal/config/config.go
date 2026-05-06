@@ -110,7 +110,11 @@ func (c *Config) applyDefaults() error {
 		if err != nil {
 			return fmt.Errorf("config: host_id unset and hostname failed: %w", err)
 		}
-		c.HostID = h
+		slug, err := slugifyHostnameAsHostID(h)
+		if err != nil {
+			return fmt.Errorf("config: host_id from hostname: %w", err)
+		}
+		c.HostID = slug
 	}
 	if c.CleanupGrace == "" {
 		c.CleanupGrace = "24h"
@@ -127,6 +131,56 @@ func (c *Config) applyDefaults() error {
 		c.Backup.Parallelism = min(8, max(1, runtime.GOMAXPROCS(0)))
 	}
 	return nil
+}
+
+// slugifyHostnameAsHostID maps an OS hostname to a valid host_id (used only when
+// host_id is omitted from config). It lowercases ASCII letters and replaces runs
+// of other characters with a single hyphen.
+func slugifyHostnameAsHostID(host string) (string, error) {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return "", fmt.Errorf("empty hostname after trim")
+	}
+	host = strings.ToLower(host)
+	var b strings.Builder
+	lastSep := false
+	for _, r := range host {
+		if isHostIDSlugRune(r) {
+			b.WriteRune(r)
+			lastSep = false
+			continue
+		}
+		if b.Len() > 0 && !lastSep {
+			b.WriteByte('-')
+			lastSep = true
+		}
+	}
+	s := b.String()
+	for strings.Contains(s, "--") {
+		s = strings.ReplaceAll(s, "--", "-")
+	}
+	s = strings.Trim(s, "-")
+	if s == "" {
+		return "", fmt.Errorf("hostname contained no usable host_id characters")
+	}
+	runes := []rune(s)
+	if len(runes) > 64 {
+		s = string(runes[:64])
+	}
+	return s, nil
+}
+
+func isHostIDSlugRune(r rune) bool {
+	switch {
+	case r >= 'a' && r <= 'z':
+		return true
+	case r >= '0' && r <= '9':
+		return true
+	case r == '.', r == '_', r == '-':
+		return true
+	default:
+		return false
+	}
 }
 
 // Validate checks mandatory fields and formats.

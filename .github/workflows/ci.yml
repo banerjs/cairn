@@ -7,9 +7,6 @@ on:
 
 jobs:
   test:
-    permissions:
-      contents: read
-      id-token: write # Codecov OIDC (public repo uploads without CODECOV_TOKEN)
     strategy:
       fail-fast: false
       matrix:
@@ -22,18 +19,29 @@ jobs:
           go-version-file: go.mod
       - name: Test
         run: go test ./...
-      - name: "Coverage summary (per-package gate: scripts/check-coverage.sh, COVERAGE_MIN=100)"
-        if: runner.os == 'Linux'
+
+  coverage:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: "Coverage summary (scripts/check-coverage.sh for local gates)"
         run: |
           go test ./... -coverprofile=coverage.out -covermode=atomic
           go tool cover -func=coverage.out | tail -3
       - name: Upload coverage to Codecov
-        if: runner.os == 'Linux'
         uses: codecov/codecov-action@v5
         with:
           files: coverage.out
           fail_ci_if_error: false
           use_oidc: true
+          git_service: github
+          slug: ${{ github.repository }}
 
   lint:
     runs-on: ubuntu-latest

@@ -35,7 +35,7 @@ func ParsePQRecipients(lines []string) ([]age.Recipient, error) {
 			}
 			out = append(out, r)
 		case strings.HasPrefix(s, "age1"):
-			return nil, fmt.Errorf("recipient %d: classical X25519 recipients (age1...) are rejected; use age1pq1...", i)
+			return nil, fmt.Errorf("recipient %d: classical X25519 recipients (age1...) are rejected; use age1pq1 recipients instead", i)
 		default:
 			return nil, fmt.Errorf("recipient %d: unknown recipient format", i)
 		}
@@ -48,11 +48,12 @@ func ParsePQRecipients(lines []string) ([]age.Recipient, error) {
 
 // LoadIdentities reads an age identity file (AGE-SECRET-KEY-1 or AGE-SECRET-KEY-PQ-1 lines).
 func LoadIdentities(path string) ([]age.Identity, error) {
+	// #nosec G304 -- path comes from explicit configuration or CAIRN_IDENTITY_FILE
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("identity file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	ids, err := age.ParseIdentities(f)
 	if err != nil {
 		return nil, fmt.Errorf("identity file: %w", err)

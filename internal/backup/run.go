@@ -289,7 +289,7 @@ func uploadRegular(ctx context.Context, st *s3store.Store, hostID, snapID string
 	if err != nil {
 		return manifest.FileEntry{}, fmt.Errorf("open %s: %w", j.fullPath, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	h := sha256.New()
 	tee := io.TeeReader(f, h)

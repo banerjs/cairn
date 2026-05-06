@@ -66,6 +66,7 @@ func collectCairnIgnoreLines(rootAbs string) ([]string, error) {
 		if relDir == "." {
 			relDir = ""
 		}
+		// #nosec G304 G122 -- path comes from WalkDir under an explicit backup root (see filepath.WalkDir call site)
 		f, err := os.Open(path)
 		if err != nil {
 			return err

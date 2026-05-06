@@ -47,7 +47,7 @@ func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, identities 
 	if err != nil {
 		return fmt.Errorf("restore: manifest json: %w", err)
 	}
-	if err := os.MkdirAll(targetRoot, 0o755); err != nil {
+	if err := os.MkdirAll(targetRoot, 0o750); err != nil {
 		return fmt.Errorf("restore: mkdir target: %w", err)
 	}
 
@@ -103,7 +103,7 @@ func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, identities 
 						setErr(fmt.Errorf("restore: rm %s: %w", dst, err))
 						return
 					}
-					if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+					if err := os.MkdirAll(filepath.Dir(dst), 0o750); err != nil {
 						setErr(err)
 						return
 					}
@@ -116,7 +116,7 @@ func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, identities 
 					continue
 				}
 				dst := filepath.Join(targetRoot, filepath.FromSlash(j.ent.Path))
-				if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+				if err := os.MkdirAll(filepath.Dir(dst), 0o750); err != nil {
 					setErr(err)
 					return
 				}
@@ -133,6 +133,7 @@ func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, identities 
 					return
 				}
 				tmp := dst + ".partial"
+				// #nosec G304 -- temp file next to destination path during restore
 				f, err := os.Create(tmp)
 				if err != nil {
 					_ = pr.Close()

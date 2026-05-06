@@ -21,7 +21,7 @@ func ExportRecoveryKit(dir string, cfg *appcfg.Config) error {
 	if strings.TrimSpace(dir) == "" {
 		return fmt.Errorf("recovery kit: output directory required")
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return fmt.Errorf("recovery kit: mkdir: %w", err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "FORMAT.md"), []byte(format.Markdown), 0o600); err != nil {
@@ -58,9 +58,9 @@ Passphrase-protected identities: set CAIRN_PASSPHRASE for non-interactive use.
 	if cfg != nil {
 		b.WriteString("Hints from your config (verify before relying on printouts)\n")
 		b.WriteString("--------------------------------------------------------\n")
-		b.WriteString(fmt.Sprintf("host_id: %q\n", cfg.HostID))
-		b.WriteString(fmt.Sprintf("s3.bucket: %q\n", cfg.S3.Bucket))
-		b.WriteString(fmt.Sprintf("s3.region: %q\n", cfg.S3.Region))
+		_, _ = fmt.Fprintf(&b, "host_id: %q\n", cfg.HostID)
+		_, _ = fmt.Fprintf(&b, "s3.bucket: %q\n", cfg.S3.Bucket)
+		_, _ = fmt.Fprintf(&b, "s3.region: %q\n", cfg.S3.Region)
 		b.WriteString("\nPublic recipients (safe to share; cannot decrypt alone):\n")
 		for _, r := range cfg.Encryption.Recipients {
 			s := strings.TrimSpace(r)

@@ -75,6 +75,7 @@ func (c *Config) CleanupGraceDuration() time.Duration {
 
 // Load reads and validates a TOML config file after expanding ${VAR} placeholders.
 func Load(path string) (*Config, error) {
+	// #nosec G304 -- config path is supplied explicitly by the operator
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("config: read %s: %w", path, err)

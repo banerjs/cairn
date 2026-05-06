@@ -38,7 +38,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - uses: golangci/golangci-lint-action@v6
+      - uses: golangci/golangci-lint-action@v7
         with:
           version: v2.12.1
 
@@ -65,7 +65,7 @@ jobs:
       - name: TFLint
         working-directory: infra/terraform
         run: |
-          tflint --init -no-color
+          tflint --no-color --init
           tflint --no-color
 
   integration:

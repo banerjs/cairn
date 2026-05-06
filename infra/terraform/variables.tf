@@ -17,15 +17,15 @@ variable "iam_user_name" {
 
 variable "transition_glacier_ir_days" {
   type        = number
-  description = "Days before transitioning objects under cairn/v1/ to GLACIER_IR; set null to disable."
-  default     = 90
+  description = "Days after object creation before transitioning objects under cairn/v1/ to GLACIER_IR; set null to disable."
+  default     = 15
   nullable    = true
 }
 
 variable "transition_deep_archive_days" {
   type        = number
-  description = "Additional transition to DEEP_ARCHIVE after N days (from creation); null disables."
-  default     = null
+  description = "Days after object creation before transitioning to DEEP_ARCHIVE (after GLACIER_IR); null disables."
+  default     = 30
   nullable    = true
 }
 

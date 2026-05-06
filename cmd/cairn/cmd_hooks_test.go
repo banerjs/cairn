@@ -552,7 +552,7 @@ func TestRun_Prune_RunHookError(t *testing.T) {
 	prevO := openStoreHook
 	prevP := pruneRunHook
 	openStoreHook = func(context.Context, *appcfg.Config) (*s3store.Store, error) { return nil, nil }
-	pruneRunHook = func(context.Context, prune.PruneStore, string, int, int, bool, *slog.Logger) error {
+	pruneRunHook = func(context.Context, prune.PruneStore, string, []string, int, int, bool, *slog.Logger) error {
 		return errors.New("prune")
 	}
 	defer func() {
@@ -569,7 +569,7 @@ func TestRun_Prune_Success_Stubs(t *testing.T) {
 	prevO := openStoreHook
 	prevP := pruneRunHook
 	openStoreHook = func(context.Context, *appcfg.Config) (*s3store.Store, error) { return nil, nil }
-	pruneRunHook = func(context.Context, prune.PruneStore, string, int, int, bool, *slog.Logger) error {
+	pruneRunHook = func(context.Context, prune.PruneStore, string, []string, int, int, bool, *slog.Logger) error {
 		return nil
 	}
 	defer func() {
@@ -577,6 +577,41 @@ func TestRun_Prune_Success_Stubs(t *testing.T) {
 		pruneRunHook = prevP
 	}()
 	if code := run([]string{"cairn", "prune", "--config", cfg, "--keep-last", "4"}); code != 0 {
+		t.Fatalf("code=%d", code)
+	}
+}
+
+func TestRun_Prune_ExplicitSnapshotIDs_Success(t *testing.T) {
+	cfg := mustWriteConfig(t, baseCfgToml(t))
+	prevO := openStoreHook
+	prevP := pruneRunHook
+	openStoreHook = func(context.Context, *appcfg.Config) (*s3store.Store, error) { return nil, nil }
+	pruneRunHook = func(_ context.Context, _ prune.PruneStore, _ string, remove []string, _, _ int, _ bool, _ *slog.Logger) error {
+		if len(remove) != 2 || remove[0] != "20200101T000000Z-aaaaaaaa" || remove[1] != "20200102T000000Z-bbbbbbbb" {
+			return fmt.Errorf("unexpected remove list: %v", remove)
+		}
+		return nil
+	}
+	defer func() {
+		openStoreHook = prevO
+		pruneRunHook = prevP
+	}()
+	if code := run([]string{"cairn", "prune", "--config", cfg,
+		"20200101T000000Z-aaaaaaaa", "20200102T000000Z-bbbbbbbb"}); code != 0 {
+		t.Fatalf("code=%d", code)
+	}
+}
+
+func TestRun_Prune_ExplicitWithKeepLastRejected(t *testing.T) {
+	cfg := mustWriteConfig(t, baseCfgToml(t))
+	if code := run([]string{"cairn", "prune", "--config", cfg, "--keep-last", "2", "20200101T000000Z-aaaaaaaa"}); code != 1 {
+		t.Fatalf("code=%d", code)
+	}
+}
+
+func TestRun_Prune_WhitespaceSnapshotIDRejected(t *testing.T) {
+	cfg := mustWriteConfig(t, baseCfgToml(t))
+	if code := run([]string{"cairn", "prune", "--config", cfg, "  \t  "}); code != 1 {
 		t.Fatalf("code=%d", code)
 	}
 }
@@ -766,7 +801,9 @@ func TestRun_Prune_DefaultConfigPath(t *testing.T) {
 	prevN := pruneRunHook
 	defaultConfigPath = func() string { return cfgPath }
 	openStoreHook = func(context.Context, *appcfg.Config) (*s3store.Store, error) { return nil, nil }
-	pruneRunHook = func(context.Context, prune.PruneStore, string, int, int, bool, *slog.Logger) error { return nil }
+	pruneRunHook = func(context.Context, prune.PruneStore, string, []string, int, int, bool, *slog.Logger) error {
+		return nil
+	}
 	defer func() {
 		defaultConfigPath = prevP
 		openStoreHook = prevO

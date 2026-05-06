@@ -24,7 +24,7 @@ func (errOnListPrefix) DeleteObject(context.Context, string) error {
 
 func TestRun_ListRootError(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	if err := Run(context.Background(), errOnListPrefix{}, "h", 1, 0, false, log); err == nil {
+	if err := Run(context.Background(), errOnListPrefix{}, "h", nil, 1, 0, false, log); err == nil {
 		t.Fatal("expected error")
 	}
 }
@@ -63,7 +63,7 @@ func TestRun_ListSnapshotSubtreeError(t *testing.T) {
 		newSnap: "20250101T000000Z-bbbbbbbb",
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	if err := Run(context.Background(), st, st.host, 1, 0, false, log); err == nil {
+	if err := Run(context.Background(), st, st.host, nil, 1, 0, false, log); err == nil {
 		t.Fatal("expected error")
 	}
 }
@@ -88,7 +88,7 @@ func (failDelete) DeleteObject(context.Context, string) error {
 func TestRun_DeleteError(t *testing.T) {
 	st := &failDelete{host: "dh", sid: "20000101T000000Z-cccccccc"}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	if err := Run(context.Background(), st, st.host, 0, 0, false, log); err == nil {
+	if err := Run(context.Background(), st, st.host, []string{st.sid}, 0, 0, false, log); err == nil {
 		t.Fatal("expected error")
 	}
 }

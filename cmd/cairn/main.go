@@ -275,7 +275,7 @@ func run(argv []string) int {
 	case "prune":
 		fs := newFlagSet("prune")
 		cfgPath := fs.String("config", "", "")
-		keepLast := fs.Int("keep-last", 0, "")
+		keepLast := fs.Int("keep-last", -1, "")
 		keepMonthly := fs.Int("keep-monthly", 0, "")
 		dry := fs.Bool("dry-run", false, "")
 		v := fs.Bool("v", false, "")
@@ -284,8 +284,22 @@ func run(argv []string) int {
 			return 1
 		}
 		log := loggerFromVerbosity(*v, *vv)
-		if *keepLast < 1 {
-			fmt.Fprintln(os.Stderr, "prune: --keep-last must be >= 1")
+		var removeIDs []string
+		for _, a := range fs.Args() {
+			s := strings.TrimSpace(a)
+			if s == "" {
+				fmt.Fprintln(os.Stderr, "prune: empty snapshot id")
+				return 1
+			}
+			removeIDs = append(removeIDs, s)
+		}
+		if len(removeIDs) > 0 {
+			if *keepLast != -1 || *keepMonthly != 0 {
+				fmt.Fprintln(os.Stderr, "prune: do not use --keep-last or --keep-monthly with explicit snapshot ids")
+				return 1
+			}
+		} else if *keepLast < 1 {
+			fmt.Fprintln(os.Stderr, "prune: --keep-last must be >= 1 (or pass snapshot id(s) to remove)")
 			return 1
 		}
 		cp := *cfgPath
@@ -302,7 +316,7 @@ func run(argv []string) int {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
-		if err := pruneRunHook(ctx, st, cfg.HostID, *keepLast, *keepMonthly, *dry, log); err != nil {
+		if err := pruneRunHook(ctx, st, cfg.HostID, removeIDs, *keepLast, *keepMonthly, *dry, log); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
@@ -381,7 +395,7 @@ Commands:
   restore <snapshot-id> --target DIR [--config PATH] [--parallelism N] [-v]
   snapshots [--host HOST] [--config PATH] [-v]
   verify <snapshot-id> [--sample N] [--config PATH] [-v]
-  prune --keep-last N [--keep-monthly M] [--dry-run] [--config PATH] [-v]
+  prune (--keep-last N [--keep-monthly M] | <snapshot-id>...) [--dry-run] [--config PATH] [-v]
   status [--host HOST] [--show-cost] [--config PATH] [-v]
   export-recovery-kit --output DIR [--config PATH]
   keygen --output PATH

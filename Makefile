@@ -1,4 +1,4 @@
-.PHONY: fmt lint test integration build build-all terraform-fmt terraform-fmt-check terraform-validate terraform-tflint terraform-lint
+.PHONY: fmt lint test integration build build-all terraform-fmt terraform-fmt-check terraform-validate terraform-tflint terraform-lint hooks-install hooks-run
 
 fmt:
 	gofmt -s -w .
@@ -37,3 +37,10 @@ terraform-tflint: ## Optional: requires tflint on PATH (see infra/terraform/.tfl
 	cd infra/terraform && tflint --init && tflint
 
 terraform-lint: terraform-fmt-check terraform-validate ## fmt-check + validate (run `make terraform-tflint` if tflint is installed)
+
+hooks-install: ## Install git pre-commit hook from .pre-commit-config.yaml
+	uv tool install --upgrade pre-commit
+	PIP_USER=0 uv tool run pre-commit install
+
+hooks-run: ## Run all pre-commit hooks on the full repo
+	PIP_USER=0 uv tool run pre-commit run --all-files

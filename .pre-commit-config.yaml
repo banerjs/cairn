@@ -1,0 +1,52 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v2.12.1
+    hooks:
+      - id: golangci-lint
+        args: [--config=.golangci.yml, ./...]
+
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.104.0
+    hooks:
+      - id: terraform_fmt
+      - id: terraform_validate
+        args: [--args=-no-color]
+      - id: terraform_tflint
+        args: [--args=--no-color, --args=--init]
+
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.11.0-1
+    hooks:
+      - id: shfmt
+        args: [-d, -i, "2", -ci]
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.44.0
+    hooks:
+      - id: markdownlint
+        args: [--disable, MD013]
+
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 0.7.22
+    hooks:
+      - id: mdformat
+
+  - repo: local
+    hooks:
+      - id: gofmt-check
+        name: gofmt check
+        language: system
+        pass_filenames: false
+        entry: bash -c 'test -z "$(gofmt -l .)" || { gofmt -l .; echo "run make fmt"; exit 1; }'

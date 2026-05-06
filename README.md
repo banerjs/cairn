@@ -23,7 +23,32 @@ go build -o cairn ./cmd/cairn
 make build   # writes ./bin/cairn
 ```
 
- Makefile targets: `make fmt`, `make lint`, `make test`, `make integration` (Docker), `make build` (native binary in `./bin/cairn`), `make build-all`, `make terraform-lint` (Terraform fmt-check + validate under `infra/terraform/`).
+Makefile targets: `make fmt`, `make lint`, `make test`, `make integration` (Docker), `make build` (native binary in `./bin/cairn`), `make build-all`, `make terraform-lint` (Terraform fmt-check + validate under `infra/terraform/`), `make hooks-install`, `make hooks-run`.
+
+## Pre-commit hooks
+
+This repo uses [pre-commit](https://pre-commit.com/) for local quality gates aligned with CI.
+Recommended tool manager: [`uv`](https://docs.astral.sh/uv/).
+
+```bash
+uv tool install --upgrade pre-commit
+make hooks-install
+```
+
+Run manually at any time:
+
+```bash
+make hooks-run
+```
+
+Enabled hooks:
+
+- `gofmt` check (fails if formatting drift exists; run `make fmt`)
+- `golangci-lint`
+- Terraform checks (`terraform fmt`, `terraform validate`, `tflint`)
+- shell checks (`shfmt` check + `shellcheck`)
+- markdown checks (`markdownlint` + `mdformat`)
+- basic text hygiene (trailing whitespace, EOF newline)
 
 ## Quick start
 
@@ -35,17 +60,17 @@ make build   # writes ./bin/cairn
 
    Note the printed `age1pq1...` recipient.
 
-2. **Create AWS bucket + IAM** — see [infra/README.md](infra/README.md) and Terraform under `infra/terraform/`.
+1. **Create AWS bucket + IAM** — see [infra/README.md](infra/README.md) and Terraform under `infra/terraform/`.
 
-3. **Write `config.toml`** — start from [examples/config.toml](examples/config.toml).
+1. **Write `config.toml`** — start from [examples/config.toml](examples/config.toml).
 
-4. **Backup**
+1. **Backup**
 
    ```bash
    cairn backup /path/to/config.toml
    ```
 
-5. **List / restore**
+1. **List / restore**
 
    ```bash
    cairn snapshots --config /path/to/config.toml
@@ -117,8 +142,8 @@ Windows Task Scheduler: run `cairn.exe backup C:\Users\you\AppData\Roaming\cairn
 
 ## Docs
 
-- [docs/design.md](docs/design.md) — design snapshot  
-- [docs/dependency-audit.md](docs/dependency-audit.md) — third-party rationale  
+- [docs/design.md](docs/design.md) — design snapshot
+- [docs/dependency-audit.md](docs/dependency-audit.md) — third-party rationale
 
 ## License
 

@@ -30,8 +30,8 @@ Pulls a larger transitive graph (Docker/Otel). **Not linked into release binarie
 Before each tagged release:
 
 1. `go list -m -u all` — note upgrades; prefer patch/minor bumps.
-2. Re-run `go test ./...` and `-tags=integration` on Linux with Docker.
-3. Skim AWS SDK + age release notes for breaking crypto or S3 behavior changes.
+1. Re-run `go test ./...` and `-tags=integration` on Linux with Docker.
+1. Skim AWS SDK + age release notes for breaking crypto or S3 behavior changes.
 
 ## FORMAT.md independence
 

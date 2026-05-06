@@ -273,7 +273,7 @@ func (badHostStub) ListPrefix(context.Context, string) ([]s3store.ListedObject, 
 	return []s3store.ListedObject{
 		{Key: "manifest.age"}, // ParseHostIDFromHostsPath fails
 		{Key: "cairn/v1/hosts/gh/snapshots/20260404T040404Z-eeeeeeee/other"}, // suffix not manifest.age
-		{Key: "cairn/v1/hosts/gh/snapshots//manifest.age"}, // SnapshotIDFromKey → ""
+		{Key: "cairn/v1/hosts/gh/snapshots//manifest.age"},                   // SnapshotIDFromKey → ""
 	}, nil
 }
 

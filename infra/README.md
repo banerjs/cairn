@@ -64,8 +64,8 @@ Configure `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` (or `~/.aws/credentials`
 ### Rotate keys
 
 1. Create a second access key in IAM (or `terraform taint aws_iam_access_key.cairn` then apply — destructive to old key).
-2. Update hosts to the new key.
-3. Delete the old inactive key.
+1. Update hosts to the new key.
+1. Delete the old inactive key.
 
 ### State & locking
 

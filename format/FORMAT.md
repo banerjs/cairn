@@ -1,6 +1,6 @@
 # Cairn format specification — bucket layout & envelopes (v1)
 
-This document is **normative** for readers independent of the Go implementation.  
+This document is **normative** for readers independent of the Go implementation.
 Two version axes:
 
 - **`cairn/v1/`** — S3 **bucket-layout** version (where keys live).
@@ -8,7 +8,7 @@ Two version axes:
 
 They bump independently.
 
----
+______________________________________________________________________
 
 ## 1. S3 key layout
 
@@ -38,7 +38,7 @@ s3://<bucket>/cairn/v1/
 
 If `objects/` entries exist but **`manifest.age` is absent**, the snapshot is **uncommitted**. Implementations may garbage-collect such prefixes after a configurable grace period.
 
----
+______________________________________________________________________
 
 ## 2. Manifest (`cairn.manifest.v1`)
 
@@ -69,7 +69,7 @@ Plaintext is a single JSON object. Required top-level fields match the implement
 
 Readers MUST refuse unknown **major** schema versions and SHOULD ignore unknown JSON fields within a known major.
 
----
+______________________________________________________________________
 
 ## 3. Data objects (`objects/<object-id>`)
 
@@ -79,7 +79,7 @@ Each object stores **one** logical file (v1; no deduplication).
 
 The blob on S3 is opaque ciphertext. Decryption order: **age decrypt → zstd decompress → plaintext**.
 
----
+______________________________________________________________________
 
 ## 4. Index (`cairn.index.v1`)
 
@@ -87,24 +87,24 @@ Optional JSON cache derived from listing `manifest.age` keys. **Not authoritativ
 
 Encoded like the manifest: **`json → zstd → age`** as `index.age`.
 
----
+______________________________________________________________________
 
 ## 5. Cryptography expectations
 
 - **age** recipients MUST be post-quantum hybrid (**`age1pq1...`** / **`age1tagpq1...`**) for v1 backups; classical X25519-only `age1...` is out of scope for v1 writers.
 - **Identity material** (`AGE-SECRET-KEY-PQ-1...`) MUST be protected at least as well as the bucket credentials; loss equals loss of decrypt capability.
 
----
+______________________________________________________________________
 
 ## 6. Recovery procedure (high level)
 
 1. Obtain bucket credentials with read access to `cairn/v1/`.
-2. List `cairn/v1/hosts/<host-id>/snapshots/*/manifest.age`.
-3. Download chosen `manifest.age`, decrypt with age identity, decompress zstd, parse JSON.
-4. For each `regular` file entry, download `objects/<object_id>`, decrypt/decompress, verify `sha256_plain`.
-5. Recreate directories and symlinks per manifest metadata.
+1. List `cairn/v1/hosts/<host-id>/snapshots/*/manifest.age`.
+1. Download chosen `manifest.age`, decrypt with age identity, decompress zstd, parse JSON.
+1. For each `regular` file entry, download `objects/<object_id>`, decrypt/decompress, verify `sha256_plain`.
+1. Recreate directories and symlinks per manifest metadata.
 
----
+______________________________________________________________________
 
 ## 7. Forward compatibility (informative)
 

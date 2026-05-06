@@ -17,6 +17,9 @@ var hostIDRe = regexp.MustCompile(`^[a-z0-9._-]{1,64}$`)
 
 // hostnameForConfig is swapped in tests (default host_id from OS hostname).
 var hostnameForConfig = os.Hostname
+var userHomeDirForConfig = os.UserHomeDir
+var getenvForConfig = os.Getenv
+var goosForConfig = func() string { return runtime.GOOS }
 
 var allowedStorageClasses = map[string]struct{}{
 	"STANDARD":            {},
@@ -148,15 +151,15 @@ func (c *Config) Validate() error {
 
 // DefaultConfigPath returns the OS-default config.toml location when --config is omitted.
 func DefaultConfigPath() string {
-	home, _ := os.UserHomeDir()
-	switch runtime.GOOS {
+	home, _ := userHomeDirForConfig()
+	switch goosForConfig() {
 	case "darwin":
 		return filepath.Join(home, "Library", "Application Support", "cairn", "config.toml")
 	case "windows":
-		app := os.Getenv("APPDATA")
+		app := getenvForConfig("APPDATA")
 		return filepath.Join(app, "cairn", "config.toml")
 	default:
-		xdg := os.Getenv("XDG_CONFIG_HOME")
+		xdg := getenvForConfig("XDG_CONFIG_HOME")
 		if xdg == "" {
 			xdg = filepath.Join(home, ".config")
 		}

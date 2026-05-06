@@ -20,6 +20,8 @@ import (
 	"filippo.io/age"
 )
 
+var verifyCopy = io.Copy
+
 // VerifyStore is the S3 read surface verify needs (implemented by *s3store.Store and test fakes).
 type VerifyStore interface {
 	GetObject(ctx context.Context, key string) (io.ReadCloser, error)
@@ -94,7 +96,7 @@ func Run(ctx context.Context, cfg *config.Config, st VerifyStore, identities []a
 			return fmt.Errorf("verify: decrypt %s: %w", fe.Path, err)
 		}
 		h := sha256.New()
-		n, err := io.Copy(h, pr)
+		n, err := verifyCopy(h, pr)
 		_ = pr.Close()
 		_ = or.Close()
 		if err != nil {

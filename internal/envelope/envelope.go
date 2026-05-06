@@ -14,6 +14,20 @@ import (
 
 const defaultZstdLevel = 3
 
+var (
+	newZstdWriter      = zstd.NewWriter
+	newZstdReader      = zstd.NewReader
+	ageEncryptFn       = age.Encrypt
+	ageDecryptFn       = age.Decrypt
+	copyEnvelope       = io.Copy
+	zstdWriterForBytes = func(w io.Writer, level int) (io.WriteCloser, error) {
+		return newZstdWriter(w, zstd.WithEncoderLevel(zstd.EncoderLevelFromZstd(level)))
+	}
+	zstdWriterForStream = func(w io.Writer, level int) (io.WriteCloser, error) {
+		return newZstdWriter(w, zstd.WithEncoderLevel(zstd.EncoderLevelFromZstd(level)))
+	}
+)
+
 // Encrypt compresses plain with zstd then encrypts to age recipients.
 func Encrypt(plain []byte, recipients []age.Recipient) ([]byte, error) {
 	return EncryptWithLevel(plain, recipients, defaultZstdLevel)
@@ -25,7 +39,7 @@ func EncryptWithLevel(plain []byte, recipients []age.Recipient, level int) ([]by
 		return nil, fmt.Errorf("envelope: no recipients")
 	}
 	var zbuf bytes.Buffer
-	zw, err := zstd.NewWriter(&zbuf, zstd.WithEncoderLevel(zstd.EncoderLevelFromZstd(level)))
+	zw, err := zstdWriterForBytes(&zbuf, level)
 	if err != nil {
 		return nil, fmt.Errorf("envelope: zstd writer: %w", err)
 	}
@@ -38,7 +52,7 @@ func EncryptWithLevel(plain []byte, recipients []age.Recipient, level int) ([]by
 	}
 
 	var out bytes.Buffer
-	aw, err := age.Encrypt(&out, recipients...)
+	aw, err := ageEncryptFn(&out, recipients...)
 	if err != nil {
 		return nil, fmt.Errorf("envelope: age encrypt: %w", err)
 	}
@@ -64,16 +78,16 @@ func EncryptReader(plain io.Reader, recipients []age.Recipient, level int) (io.R
 	pr, pw := io.Pipe()
 	go func() {
 		err := func() error {
-			aw, err := age.Encrypt(pw, recipients...)
+			aw, err := ageEncryptFn(pw, recipients...)
 			if err != nil {
 				return err
 			}
-			zw, err := zstd.NewWriter(aw, zstd.WithEncoderLevel(zstd.EncoderLevelFromZstd(level)))
+			zw, err := zstdWriterForStream(aw, level)
 			if err != nil {
 				_ = aw.Close()
 				return err
 			}
-			if _, err := io.Copy(zw, plain); err != nil {
+			if _, err := copyEnvelope(zw, plain); err != nil {
 				_ = zw.Close()
 				_ = aw.Close()
 				return err
@@ -94,17 +108,17 @@ func Decrypt(cipher []byte, identities []age.Identity) ([]byte, error) {
 	if len(identities) == 0 {
 		return nil, fmt.Errorf("envelope: no identities")
 	}
-	ar, err := age.Decrypt(bytes.NewReader(cipher), identities...)
+	ar, err := ageDecryptFn(bytes.NewReader(cipher), identities...)
 	if err != nil {
 		return nil, fmt.Errorf("envelope: age decrypt: %w", err)
 	}
-	zr, err := zstd.NewReader(ar)
+	zr, err := newZstdReader(ar)
 	if err != nil {
 		return nil, fmt.Errorf("envelope: zstd reader: %w", err)
 	}
 	defer zr.Close()
 	var out bytes.Buffer
-	if _, err := io.Copy(&out, zr); err != nil {
+	if _, err := copyEnvelope(&out, zr); err != nil {
 		return nil, fmt.Errorf("envelope: zstd read: %w", err)
 	}
 	return out.Bytes(), nil
@@ -115,11 +129,11 @@ func DecryptReader(cipher io.Reader, identities []age.Identity) (io.ReadCloser, 
 	if len(identities) == 0 {
 		return nil, fmt.Errorf("envelope: no identities")
 	}
-	ar, err := age.Decrypt(cipher, identities...)
+	ar, err := ageDecryptFn(cipher, identities...)
 	if err != nil {
 		return nil, fmt.Errorf("envelope: age decrypt: %w", err)
 	}
-	zr, err := zstd.NewReader(ar)
+	zr, err := newZstdReader(ar)
 	if err != nil {
 		return nil, fmt.Errorf("envelope: zstd reader: %w", err)
 	}

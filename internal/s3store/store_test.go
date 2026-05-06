@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"net/http"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/banerjs/cairn/internal/s3store"
 	"github.com/banerjs/cairn/internal/s3test"
 )
@@ -45,4 +47,46 @@ func TestRoundTrip(t *testing.T) {
 	if err := st.DeleteObject(ctx, key); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestNew_NonEmptyBucketSuccess(t *testing.T) {
+	if _, err := s3store.New(context.Background(), aws.Config{}, "ok-bucket"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestTransportErrors(t *testing.T) {
+	cfg := aws.Config{
+		Region: "us-east-1",
+		HTTPClient: &http.Client{
+			Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+				return nil, context.DeadlineExceeded
+			}),
+		},
+	}
+	cl := s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String("http://127.0.0.1:2")
+		o.UsePathStyle = true
+	})
+	st := s3store.NewWithClient(cl, "b")
+	ctx := context.Background()
+
+	if err := st.PutObject(ctx, "k", bytes.NewReader([]byte("x")), "STANDARD"); err == nil {
+		t.Fatal("expected put error")
+	}
+	if _, err := st.GetObject(ctx, "k"); err == nil {
+		t.Fatal("expected get error")
+	}
+	if err := st.DeleteObject(ctx, "k"); err == nil {
+		t.Fatal("expected delete error")
+	}
+	if _, err := st.ListPrefix(ctx, "p/"); err == nil {
+		t.Fatal("expected list error")
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
 }

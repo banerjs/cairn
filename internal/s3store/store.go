@@ -12,6 +12,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
+var (
+	newS3Client = s3.NewFromConfig
+	newUploader = manager.NewUploader
+)
+
 // ListedObject is one row from ListObjectsV2 (latest non-delete marker version).
 type ListedObject struct {
 	Key          string
@@ -32,7 +37,7 @@ func New(ctx context.Context, cfg aws.Config, bucket string) (*Store, error) {
 	if bucket == "" {
 		return nil, fmt.Errorf("s3store: empty bucket")
 	}
-	cl := s3.NewFromConfig(cfg)
+	cl := newS3Client(cfg)
 	return NewWithClient(cl, bucket), nil
 }
 
@@ -41,7 +46,7 @@ func NewWithClient(cl *s3.Client, bucket string) *Store {
 	return &Store{
 		bucket: bucket,
 		client: cl,
-		up:     manager.NewUploader(cl),
+		up:     newUploader(cl),
 	}
 }
 
@@ -101,16 +106,23 @@ func (s *Store) ListPrefix(ctx context.Context, prefix string) ([]ListedObject, 
 			return nil, fmt.Errorf("s3store ListPrefix: %w", err)
 		}
 		for _, ent := range page.Contents {
-			if ent.Key == nil {
-				continue
+			lo, ok := listedObjectFromS3(ent)
+			if ok {
+				out = append(out, lo)
 			}
-			lo := ListedObject{Key: *ent.Key}
-			if ent.Size != nil {
-				lo.Size = *ent.Size
-			}
-			lo.StorageClass = ent.StorageClass
-			out = append(out, lo)
 		}
 	}
 	return out, nil
+}
+
+func listedObjectFromS3(ent types.Object) (ListedObject, bool) {
+	if ent.Key == nil {
+		return ListedObject{}, false
+	}
+	lo := ListedObject{Key: *ent.Key}
+	if ent.Size != nil {
+		lo.Size = *ent.Size
+	}
+	lo.StorageClass = ent.StorageClass
+	return lo, true
 }

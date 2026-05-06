@@ -10,6 +10,9 @@ import (
 	"filippo.io/age/tag"
 )
 
+var generateHybridIdentity = age.GenerateHybridIdentity
+var parseTagRecipient = tag.ParseRecipient
+
 // ParsePQRecipients parses recipient strings; only hybrid PQ (age1pq1) and tagged PQ (age1tagpq1) are allowed.
 func ParsePQRecipients(lines []string) ([]age.Recipient, error) {
 	var out []age.Recipient
@@ -23,7 +26,7 @@ func ParsePQRecipients(lines []string) ([]age.Recipient, error) {
 		}
 		switch {
 		case strings.HasPrefix(s, "age1tag"):
-			r, err := tag.ParseRecipient(s)
+			r, err := parseTagRecipient(s)
 			if err != nil {
 				return nil, fmt.Errorf("recipient %d: %w", i, err)
 			}
@@ -74,7 +77,7 @@ func IdentityPath(envVal, configPath string) (string, error) {
 
 // GeneratePQIdentity creates a new hybrid identity and returns armored secret + public recipient line.
 func GeneratePQIdentity() (identityLine string, recipientLine string, err error) {
-	id, err := age.GenerateHybridIdentity()
+	id, err := generateHybridIdentity()
 	if err != nil {
 		return "", "", err
 	}

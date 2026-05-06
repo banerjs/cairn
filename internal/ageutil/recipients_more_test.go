@@ -1,11 +1,13 @@
 package ageutil
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"filippo.io/age"
+	"filippo.io/age/tag"
 )
 
 func TestParsePQRecipients_HybridSkipsBlank(t *testing.T) {
@@ -14,6 +16,16 @@ func TestParsePQRecipients_HybridSkipsBlank(t *testing.T) {
 		t.Fatal(err)
 	}
 	out, err := ParsePQRecipients([]string{"  ", id.Recipient().String()})
+	if err != nil || len(out) != 1 {
+		t.Fatalf("got %v len %d", err, len(out))
+	}
+}
+
+func TestParsePQRecipients_TaggedRecipient(t *testing.T) {
+	prev := parseTagRecipient
+	parseTagRecipient = func(string) (*tag.Recipient, error) { return nil, nil }
+	defer func() { parseTagRecipient = prev }()
+	out, err := ParsePQRecipients([]string{"age1tagpq1synthetic"})
 	if err != nil || len(out) != 1 {
 		t.Fatalf("got %v len %d", err, len(out))
 	}
@@ -28,6 +40,12 @@ func TestParsePQRecipients_Errors(t *testing.T) {
 	}
 	if _, err := ParsePQRecipients([]string{"not-a-key"}); err == nil {
 		t.Fatal("expected unknown format")
+	}
+	if _, err := ParsePQRecipients([]string{"age1pq1bad"}); err == nil {
+		t.Fatal("expected malformed hybrid rejection")
+	}
+	if _, err := ParsePQRecipients([]string{"age1tagpq1bad"}); err == nil {
+		t.Fatal("expected malformed tagged rejection")
 	}
 }
 
@@ -65,5 +83,32 @@ func TestLoadIdentities_InvalidContent(t *testing.T) {
 	}
 	if _, err := LoadIdentities(p); err == nil {
 		t.Fatal("expected parse error")
+	}
+}
+
+func TestLoadIdentities_Success(t *testing.T) {
+	id, err := age.GenerateHybridIdentity()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(t.TempDir(), "ok.age")
+	if err := os.WriteFile(p, []byte(id.String()+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ids, err := LoadIdentities(p)
+	if err != nil || len(ids) == 0 {
+		t.Fatalf("ids=%d err=%v", len(ids), err)
+	}
+}
+
+func TestGeneratePQIdentity_Error(t *testing.T) {
+	boom := errors.New("rng")
+	prev := generateHybridIdentity
+	generateHybridIdentity = func() (*age.HybridIdentity, error) {
+		return nil, boom
+	}
+	defer func() { generateHybridIdentity = prev }()
+	if _, _, err := GeneratePQIdentity(); !errors.Is(err, boom) {
+		t.Fatalf("err=%v", err)
 	}
 }

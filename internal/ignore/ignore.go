@@ -3,6 +3,7 @@ package ignore
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,11 @@ import (
 type Matcher struct {
 	gi *gitignore.GitIgnore
 }
+
+var (
+	relForIgnore  = filepath.Rel
+	openForIgnore = os.Open
+)
 
 // Compile builds a gitignore-style matcher for one source root tree.
 //
@@ -58,18 +64,18 @@ func collectCairnIgnoreLines(rootAbs string) ([]string, error) {
 		if d.IsDir() || d.Name() != ".cairnignore" {
 			return nil
 		}
-		relDir, err := filepath.Rel(rootAbs, filepath.Dir(path))
+		relDir, err := relForIgnore(rootAbs, filepath.Dir(path))
 		if err != nil {
-			return err
+			return fmt.Errorf("ignore rel: %w", err)
 		}
 		relDir = filepath.ToSlash(relDir)
 		if relDir == "." {
 			relDir = ""
 		}
 		// #nosec G304 G122 -- path comes from WalkDir under an explicit backup root (see filepath.WalkDir call site)
-		f, err := os.Open(path)
+		f, err := openForIgnore(path)
 		if err != nil {
-			return err
+			return fmt.Errorf("ignore open: %w", err)
 		}
 		sc := bufio.NewScanner(f)
 		for sc.Scan() {

@@ -19,7 +19,7 @@ jobs:
           go-version-file: go.mod
       - name: Test
         run: go test ./...
-      - name: Coverage summary (per-package gate: scripts/check-coverage.sh, COVERAGE_MIN=100)
+      - name: "Coverage summary (per-package gate: scripts/check-coverage.sh, COVERAGE_MIN=100)"
         if: runner.os == 'Linux'
         run: |
           go test ./... -coverprofile=coverage.out -covermode=atomic

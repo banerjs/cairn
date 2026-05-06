@@ -15,8 +15,14 @@ import (
 	"filippo.io/age"
 )
 
+// SnapshotLister is the S3 read surface List needs (*s3store.Store implements this).
+type SnapshotLister interface {
+	GetObject(ctx context.Context, key string) (io.ReadCloser, error)
+	ListPrefix(ctx context.Context, prefix string) ([]s3store.ListedObject, error)
+}
+
 // List prints snapshot IDs, preferring the encrypted index when decryptable.
-func List(ctx context.Context, cfg *config.Config, st *s3store.Store, identities []age.Identity, filterHost string, log *slog.Logger) error {
+func List(ctx context.Context, cfg *config.Config, st SnapshotLister, identities []age.Identity, filterHost string, log *slog.Logger) error {
 	tryHost := cfg.HostID
 	if filterHost != "" {
 		tryHost = filterHost

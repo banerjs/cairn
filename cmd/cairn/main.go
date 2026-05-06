@@ -27,8 +27,18 @@ import (
 	"filippo.io/age"
 )
 
+// osExit is swapped in tests; production delegates to os.Exit.
+var osExit = os.Exit
+
+func defaultExit(code int) {
+	osExit(code)
+}
+
+// exitHook is swapped in tests so main() yields without terminating the process.
+var exitHook = defaultExit
+
 func main() {
-	os.Exit(run(os.Args))
+	exitHook(run(os.Args))
 }
 
 // openStoreHook is swapped in tests to avoid live AWS calls.
@@ -36,6 +46,32 @@ var openStoreHook = defaultOpenStore
 
 // getenv is swapped in tests for identity file resolution.
 var getenv = os.Getenv
+
+// awsLoadForStore wraps awsconfig.Load for tests that must avoid touching the SDK.
+var awsLoadForStore = awsconfig.Load
+
+// newS3Store wraps s3store.New for deterministic tests (e.g. empty bucket error after fake AWS config).
+var newS3Store = s3store.New
+
+// defaultConfigPath resolves the config.toml path when CLI --config is empty.
+var defaultConfigPath = appcfg.DefaultConfigPath
+
+var (
+	keygenRunHook         = keygen.WriteNewHybridIdentity
+	backupRunHook         = backup.Run
+	restoreRunHook        = restore.Run
+	snapshotsListHook     = snapshots.List
+	verifyRunHook         = verifycmd.Run
+	pruneRunHook          = prune.Run
+	statusRunHook         = status.Run
+	exportRecoveryKitHook = recovery.ExportRecoveryKit
+)
+
+func newFlagSet(name string) *flag.FlagSet {
+	fs := flag.NewFlagSet(name, flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	return fs
+}
 
 func run(argv []string) int {
 	if len(argv) < 2 {
@@ -57,8 +93,7 @@ func run(argv []string) int {
 
 	switch sub {
 	case "keygen":
-		fs := flag.NewFlagSet("keygen", flag.ExitOnError)
-		fs.SetOutput(os.Stderr)
+		fs := newFlagSet("keygen")
 		out := fs.String("output", "", "write new identity here")
 		if err := fs.Parse(argv[2:]); err != nil {
 			return 1
@@ -67,7 +102,7 @@ func run(argv []string) int {
 			fmt.Fprintln(os.Stderr, "keygen: --output required")
 			return 1
 		}
-		rec, err := keygen.WriteNewHybridIdentity(*out)
+		rec, err := keygenRunHook(*out)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
@@ -81,8 +116,7 @@ func run(argv []string) int {
 			return 1
 		}
 		cfgPath := argv[2]
-		fs := flag.NewFlagSet("backup", flag.ExitOnError)
-		fs.SetOutput(os.Stderr)
+		fs := newFlagSet("backup")
 		sc := fs.String("storage-class", "", "override [s3].storage_class")
 		p := fs.Int("parallelism", 0, "workers (0 = config)")
 		v := fs.Bool("v", false, "info logs")
@@ -106,15 +140,14 @@ func run(argv []string) int {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
-		if err := backup.Run(ctx, cfg, st, recips, *sc, *p, log); err != nil {
+		if err := backupRunHook(ctx, cfg, st, recips, *sc, *p, log); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
 		return 0
 
 	case "restore":
-		fs := flag.NewFlagSet("restore", flag.ExitOnError)
-		fs.SetOutput(os.Stderr)
+		fs := newFlagSet("restore")
 		cfgPath := fs.String("config", "", "config path (default OS-specific)")
 		target := fs.String("target", "", "restore destination directory")
 		p := fs.Int("parallelism", 0, "workers (0 = config)")
@@ -131,7 +164,7 @@ func run(argv []string) int {
 		log := loggerFromVerbosity(*v, *vv)
 		cp := *cfgPath
 		if cp == "" {
-			cp = appcfg.DefaultConfigPath()
+			cp = defaultConfigPath()
 		}
 		cfg, err := appcfg.Load(cp)
 		if err != nil {
@@ -153,15 +186,14 @@ func run(argv []string) int {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
-		if err := restore.Run(ctx, cfg, st, ids, args[0], filepath.Clean(*target), *p, log); err != nil {
+		if err := restoreRunHook(ctx, cfg, st, ids, args[0], filepath.Clean(*target), *p, log); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
 		return 0
 
 	case "snapshots":
-		fs := flag.NewFlagSet("snapshots", flag.ExitOnError)
-		fs.SetOutput(os.Stderr)
+		fs := newFlagSet("snapshots")
 		cfgPath := fs.String("config", "", "")
 		host := fs.String("host", "", "filter host")
 		v := fs.Bool("v", false, "")
@@ -172,7 +204,7 @@ func run(argv []string) int {
 		log := loggerFromVerbosity(*v, *vv)
 		cp := *cfgPath
 		if cp == "" {
-			cp = appcfg.DefaultConfigPath()
+			cp = defaultConfigPath()
 		}
 		cfg, err := appcfg.Load(cp)
 		if err != nil {
@@ -189,15 +221,14 @@ func run(argv []string) int {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
-		if err := snapshots.List(ctx, cfg, st, ids, *host, log); err != nil {
+		if err := snapshotsListHook(ctx, cfg, st, ids, *host, log); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
 		return 0
 
 	case "verify":
-		fs := flag.NewFlagSet("verify", flag.ExitOnError)
-		fs.SetOutput(os.Stderr)
+		fs := newFlagSet("verify")
 		cfgPath := fs.String("config", "", "")
 		sample := fs.Int("sample", 10, "0 = verify all regular files")
 		v := fs.Bool("v", false, "")
@@ -213,7 +244,7 @@ func run(argv []string) int {
 		log := loggerFromVerbosity(*v, *vv)
 		cp := *cfgPath
 		if cp == "" {
-			cp = appcfg.DefaultConfigPath()
+			cp = defaultConfigPath()
 		}
 		cfg, err := appcfg.Load(cp)
 		if err != nil {
@@ -235,15 +266,14 @@ func run(argv []string) int {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
-		if err := verifycmd.Run(ctx, cfg, st, ids, args[0], *sample, log); err != nil {
+		if err := verifyRunHook(ctx, cfg, st, ids, args[0], *sample, log); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
 		return 0
 
 	case "prune":
-		fs := flag.NewFlagSet("prune", flag.ExitOnError)
-		fs.SetOutput(os.Stderr)
+		fs := newFlagSet("prune")
 		cfgPath := fs.String("config", "", "")
 		keepLast := fs.Int("keep-last", 0, "")
 		keepMonthly := fs.Int("keep-monthly", 0, "")
@@ -260,7 +290,7 @@ func run(argv []string) int {
 		}
 		cp := *cfgPath
 		if cp == "" {
-			cp = appcfg.DefaultConfigPath()
+			cp = defaultConfigPath()
 		}
 		cfg, err := appcfg.Load(cp)
 		if err != nil {
@@ -272,15 +302,14 @@ func run(argv []string) int {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
-		if err := prune.Run(ctx, st, cfg.HostID, *keepLast, *keepMonthly, *dry, log); err != nil {
+		if err := pruneRunHook(ctx, st, cfg.HostID, *keepLast, *keepMonthly, *dry, log); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
 		return 0
 
 	case "export-recovery-kit":
-		fs := flag.NewFlagSet("export-recovery-kit", flag.ExitOnError)
-		fs.SetOutput(os.Stderr)
+		fs := newFlagSet("export-recovery-kit")
 		outDir := fs.String("output", "", "directory to write FORMAT.md and hints")
 		cfgPath := fs.String("config", "", "optional config for bucket hints and public recipients")
 		if err := fs.Parse(argv[2:]); err != nil {
@@ -299,7 +328,7 @@ func run(argv []string) int {
 				return 1
 			}
 		}
-		if err := recovery.ExportRecoveryKit(*outDir, cfg); err != nil {
+		if err := exportRecoveryKitHook(*outDir, cfg); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
@@ -307,8 +336,7 @@ func run(argv []string) int {
 		return 0
 
 	case "status":
-		fs := flag.NewFlagSet("status", flag.ExitOnError)
-		fs.SetOutput(os.Stderr)
+		fs := newFlagSet("status")
 		cfgPath := fs.String("config", "", "")
 		host := fs.String("host", "", "")
 		showCost := fs.Bool("show-cost", false, "")
@@ -320,7 +348,7 @@ func run(argv []string) int {
 		log := loggerFromVerbosity(*v, *vv)
 		cp := *cfgPath
 		if cp == "" {
-			cp = appcfg.DefaultConfigPath()
+			cp = defaultConfigPath()
 		}
 		cfg, err := appcfg.Load(cp)
 		if err != nil {
@@ -332,7 +360,7 @@ func run(argv []string) int {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
-		if err := status.Run(ctx, st, *host, *showCost, log); err != nil {
+		if err := statusRunHook(ctx, st, *host, *showCost, log); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
@@ -378,9 +406,9 @@ func loggerFromVerbosity(v, vv bool) *slog.Logger {
 }
 
 func defaultOpenStore(ctx context.Context, cfg *appcfg.Config) (*s3store.Store, error) {
-	awscfg, err := awsconfig.Load(ctx, cfg.S3.Region)
+	awscfg, err := awsLoadForStore(ctx, cfg.S3.Region)
 	if err != nil {
 		return nil, err
 	}
-	return s3store.New(ctx, awscfg, cfg.S3.Bucket)
+	return newS3Store(ctx, awscfg, cfg.S3.Bucket)
 }

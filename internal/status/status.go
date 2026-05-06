@@ -10,8 +10,13 @@ import (
 	"github.com/banerjs/cairn/internal/s3store"
 )
 
+// PrefixLister lists objects (*s3store.Store satisfies this).
+type PrefixLister interface {
+	ListPrefix(ctx context.Context, prefix string) ([]s3store.ListedObject, error)
+}
+
 // Run prints aggregate listing totals under cairn/v1/hosts/.
-func Run(ctx context.Context, st *s3store.Store, filterHost string, showCost bool, log *slog.Logger) error {
+func Run(ctx context.Context, st PrefixLister, filterHost string, showCost bool, log *slog.Logger) error {
 	objs, err := st.ListPrefix(ctx, paths.HostsRootPrefix())
 	if err != nil {
 		return err

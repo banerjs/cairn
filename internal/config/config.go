@@ -15,6 +15,9 @@ import (
 
 var hostIDRe = regexp.MustCompile(`^[a-z0-9._-]{1,64}$`)
 
+// hostnameForConfig is swapped in tests (default host_id from OS hostname).
+var hostnameForConfig = os.Hostname
+
 var allowedStorageClasses = map[string]struct{}{
 	"STANDARD":            {},
 	"STANDARD_IA":         {},
@@ -100,7 +103,7 @@ func Load(path string) (*Config, error) {
 
 func (c *Config) applyDefaults() error {
 	if c.HostID == "" {
-		h, err := os.Hostname()
+		h, err := hostnameForConfig()
 		if err != nil {
 			return fmt.Errorf("config: host_id unset and hostname failed: %w", err)
 		}

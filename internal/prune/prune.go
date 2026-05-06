@@ -10,8 +10,14 @@ import (
 	"github.com/banerjs/cairn/internal/s3store"
 )
 
+// PruneStore lists and deletes objects under snapshot prefixes (implemented by *s3store.Store).
+type PruneStore interface {
+	ListPrefix(ctx context.Context, prefix string) ([]s3store.ListedObject, error)
+	DeleteObject(ctx context.Context, key string) error
+}
+
 // Run deletes snapshot trees not selected by retention rules.
-func Run(ctx context.Context, st *s3store.Store, hostID string, keepLast, keepMonthly int, dryRun bool, log *slog.Logger) error {
+func Run(ctx context.Context, st PruneStore, hostID string, keepLast, keepMonthly int, dryRun bool, log *slog.Logger) error {
 	prefix := paths.SnapshotsListPrefix(hostID)
 	objs, err := st.ListPrefix(ctx, prefix)
 	if err != nil {

@@ -20,14 +20,14 @@ import (
 	"filippo.io/age"
 )
 
-// snapshotStore is the S3 read surface verify needs (implemented by *s3store.Store and test fakes).
-type snapshotStore interface {
+// VerifyStore is the S3 read surface verify needs (implemented by *s3store.Store and test fakes).
+type VerifyStore interface {
 	GetObject(ctx context.Context, key string) (io.ReadCloser, error)
 	ListPrefix(ctx context.Context, prefix string) ([]s3store.ListedObject, error)
 }
 
 // Run verifies a snapshot: decrypt manifest, optional random sample of files, list coverage for object existence.
-func Run(ctx context.Context, cfg *config.Config, st snapshotStore, identities []age.Identity, snapshotID string, sample int, log *slog.Logger) error {
+func Run(ctx context.Context, cfg *config.Config, st VerifyStore, identities []age.Identity, snapshotID string, sample int, log *slog.Logger) error {
 	rc, err := st.GetObject(ctx, paths.ManifestKey(cfg.HostID, snapshotID))
 	if err != nil {
 		return fmt.Errorf("verify: manifest: %w", err)

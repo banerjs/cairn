@@ -21,10 +21,10 @@ func ExportRecoveryKit(dir string, cfg *appcfg.Config) error {
 	if strings.TrimSpace(dir) == "" {
 		return fmt.Errorf("recovery kit: output directory required")
 	}
-	if err := os.MkdirAll(dir, 0o750); err != nil {
+	if err := mkdirAllRecovery(dir, 0o750); err != nil {
 		return fmt.Errorf("recovery kit: mkdir: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "FORMAT.md"), []byte(format.Markdown), 0o600); err != nil {
+	if err := writeFileRecovery(filepath.Join(dir, "FORMAT.md"), []byte(format.Markdown), 0o600); err != nil {
 		return fmt.Errorf("recovery kit: write FORMAT.md: %w", err)
 	}
 
@@ -80,14 +80,19 @@ Passphrase-protected identities: set CAIRN_PASSPHRASE for non-interactive use.
 		}
 		if len(lines) > 0 {
 			recPath := filepath.Join(dir, "recipients_public.txt")
-			if err := os.WriteFile(recPath, []byte(strings.Join(lines, "\n")+"\n"), 0o600); err != nil {
+			if err := writeFileRecovery(recPath, []byte(strings.Join(lines, "\n")+"\n"), 0o600); err != nil {
 				return fmt.Errorf("recovery kit: write recipients_public.txt: %w", err)
 			}
 		}
 	}
 
-	if err := os.WriteFile(filepath.Join(dir, "RESTORE.txt"), []byte(b.String()), 0o600); err != nil {
+	if err := writeFileRecovery(filepath.Join(dir, "RESTORE.txt"), []byte(b.String()), 0o600); err != nil {
 		return fmt.Errorf("recovery kit: write RESTORE.txt: %w", err)
 	}
 	return nil
 }
+
+var (
+	mkdirAllRecovery  = os.MkdirAll
+	writeFileRecovery = os.WriteFile
+)

@@ -20,13 +20,32 @@ import (
 	"github.com/banerjs/cairn/internal/envelope"
 	"github.com/banerjs/cairn/internal/manifest"
 	"github.com/banerjs/cairn/internal/paths"
-	"github.com/banerjs/cairn/internal/s3store"
 
 	"filippo.io/age"
 )
 
+// Overrides for deterministic tests (see restore_hooks_test.go).
+var (
+	mkdirAllRestore = os.MkdirAll
+	renameRestore   = os.Rename
+	createRestore   = os.Create
+	copyRestore     = func(dst io.Writer, src io.Reader) (int64, error) { return io.Copy(dst, src) }
+	removeRestore   = os.Remove
+	chmodRestore    = os.Chmod
+	chtimesRestore  = os.Chtimes
+	chownRestore    = os.Chown
+	symlinkRestore  = os.Symlink
+	euidRestore     = os.Geteuid
+	goosRestore     = func() string { return runtime.GOOS }
+)
+
+// ObjectGetter reads encrypted snapshot objects (*s3store.Store implements this).
+type ObjectGetter interface {
+	GetObject(ctx context.Context, key string) (io.ReadCloser, error)
+}
+
 // Run restores one snapshot under targetRoot using the manifest as authority.
-func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, identities []age.Identity, snapshotID, targetRoot string, workers int, log *slog.Logger) error {
+func Run(ctx context.Context, cfg *config.Config, st ObjectGetter, identities []age.Identity, snapshotID, targetRoot string, workers int, log *slog.Logger) error {
 	if workers <= 0 {
 		workers = cfg.Backup.Parallelism
 	}
@@ -47,7 +66,7 @@ func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, identities 
 	if err != nil {
 		return fmt.Errorf("restore: manifest json: %w", err)
 	}
-	if err := os.MkdirAll(targetRoot, 0o750); err != nil {
+	if err := mkdirAllRestore(targetRoot, 0o750); err != nil {
 		return fmt.Errorf("restore: mkdir target: %w", err)
 	}
 
@@ -56,14 +75,14 @@ func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, identities 
 	})
 	for _, d := range m.Directories {
 		dst := filepath.Join(targetRoot, filepath.FromSlash(d.Path))
-		if err := os.MkdirAll(dst, dirPerm(d)); err != nil {
+		if err := mkdirAllRestore(dst, dirPerm(d)); err != nil {
 			return fmt.Errorf("restore: mkdir %s: %w", dst, err)
 		}
-		if err := os.Chtimes(dst, timeFromNs(d.MtimeNs), timeFromNs(d.MtimeNs)); err != nil {
+		if err := chtimesRestore(dst, timeFromNs(d.MtimeNs), timeFromNs(d.MtimeNs)); err != nil {
 			log.Debug("restore: chtimes dir", "path", dst, "err", err)
 		}
-		if runtime.GOOS != "windows" && os.Geteuid() == 0 && d.UID != nil && d.GID != nil {
-			if err := os.Chown(dst, int(*d.UID), int(*d.GID)); err != nil {
+		if goosRestore() != "windows" && euidRestore() == 0 && d.UID != nil && d.GID != nil {
+			if err := chownRestore(dst, int(*d.UID), int(*d.GID)); err != nil {
 				log.Debug("restore: chown dir", "path", dst, "err", err)
 			}
 		}
@@ -99,15 +118,15 @@ func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, identities 
 						return
 					}
 					dst := filepath.Join(targetRoot, filepath.FromSlash(j.ent.Path))
-					if err := os.Remove(dst); err != nil && !os.IsNotExist(err) {
+					if err := removeRestore(dst); err != nil && !os.IsNotExist(err) {
 						setErr(fmt.Errorf("restore: rm %s: %w", dst, err))
 						return
 					}
-					if err := os.MkdirAll(filepath.Dir(dst), 0o750); err != nil {
+					if err := mkdirAllRestore(filepath.Dir(dst), 0o750); err != nil {
 						setErr(err)
 						return
 					}
-					if err := os.Symlink(*j.ent.SymlinkTarget, dst); err != nil {
+					if err := symlinkRestore(*j.ent.SymlinkTarget, dst); err != nil {
 						log.Debug("restore: symlink failed", "path", dst, "err", err)
 					}
 					continue
@@ -116,7 +135,7 @@ func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, identities 
 					continue
 				}
 				dst := filepath.Join(targetRoot, filepath.FromSlash(j.ent.Path))
-				if err := os.MkdirAll(filepath.Dir(dst), 0o750); err != nil {
+				if err := mkdirAllRestore(filepath.Dir(dst), 0o750); err != nil {
 					setErr(err)
 					return
 				}
@@ -134,7 +153,7 @@ func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, identities 
 				}
 				tmp := dst + ".partial"
 				// #nosec G304 -- temp file next to destination path during restore
-				f, err := os.Create(tmp)
+				f, err := createRestore(tmp)
 				if err != nil {
 					_ = pr.Close()
 					_ = objRC.Close()
@@ -142,33 +161,33 @@ func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, identities 
 					return
 				}
 				h := sha256.New()
-				_, copyErr := io.Copy(f, io.TeeReader(pr, h))
+				_, copyErr := copyRestore(f, io.TeeReader(pr, h))
 				_ = f.Close()
 				_ = pr.Close()
 				_ = objRC.Close()
 				if copyErr != nil {
-					_ = os.Remove(tmp)
+					_ = removeRestore(tmp)
 					setErr(copyErr)
 					return
 				}
 				sum := hex.EncodeToString(h.Sum(nil))
 				if !strings.EqualFold(sum, j.ent.SHA256Plain) {
-					_ = os.Remove(tmp)
+					_ = removeRestore(tmp)
 					setErr(fmt.Errorf("restore: hash mismatch %s", j.ent.Path))
 					return
 				}
-				if err := os.Chmod(tmp, filePerm(&j.ent)); err != nil {
+				if err := chmodRestore(tmp, filePerm(&j.ent)); err != nil {
 					log.Debug("restore: chmod", "path", tmp, "err", err)
 				}
-				if runtime.GOOS != "windows" && os.Geteuid() == 0 && j.ent.UID != nil && j.ent.GID != nil {
-					_ = os.Chown(tmp, int(*j.ent.UID), int(*j.ent.GID))
+				if goosRestore() != "windows" && euidRestore() == 0 && j.ent.UID != nil && j.ent.GID != nil {
+					_ = chownRestore(tmp, int(*j.ent.UID), int(*j.ent.GID))
 				}
-				if err := os.Rename(tmp, dst); err != nil {
-					_ = os.Remove(tmp)
+				if err := renameRestore(tmp, dst); err != nil {
+					_ = removeRestore(tmp)
 					setErr(fmt.Errorf("restore: rename %s: %w", dst, err))
 					return
 				}
-				if err := os.Chtimes(dst, timeFromNs(j.ent.MtimeNs), timeFromNs(j.ent.MtimeNs)); err != nil {
+				if err := chtimesRestore(dst, timeFromNs(j.ent.MtimeNs), timeFromNs(j.ent.MtimeNs)); err != nil {
 					log.Debug("restore: chtimes", "path", dst, "err", err)
 				}
 			}

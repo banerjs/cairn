@@ -30,6 +30,31 @@ import (
 
 const zstdDataLevel = 3
 
+var (
+	cleanupPartialSnapshotsFn = CleanupPartialSnapshots
+	snapshotIDNewFn           = snapshotid.New
+	pathAbsFn                 = filepath.Abs
+	relPathFn                 = filepath.Rel
+	ignoreCompileFn           = ignore.Compile
+	walkDirFn                 = filepath.WalkDir
+	readlinkFn                = os.Readlink
+	statFn                    = os.Stat
+	runtimeGOOSFn             = defaultRuntimeGOOS
+	nowUTCFn                  = defaultNowUTC
+	marshalManifestFn         = manifest.MarshalJSONForManifest
+	encryptManifestFn         = envelope.Encrypt
+	rebuildIndexFn            = RebuildIndex
+	openFileFn                = os.Open
+	encryptReaderFn           = envelope.EncryptReader
+	newUUIDFn                 = defaultNewUUID
+)
+
+func defaultRuntimeGOOS() string { return runtime.GOOS }
+
+func defaultNowUTC() time.Time { return time.Now().UTC() }
+
+func defaultNewUUID() string { return uuid.New().String() }
+
 type countingReader struct {
 	r io.Reader
 	n int64
@@ -52,10 +77,10 @@ type walkJob struct {
 
 // Run executes a full backup: GC partial snapshots, walk sources, upload payloads, commit manifest, refresh index.
 func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, recipients []age.Recipient, storageClassCLI string, parallelismOverride int, log *slog.Logger) error {
-	if err := CleanupPartialSnapshots(ctx, st, cfg.HostID, cfg.CleanupGraceDuration(), log); err != nil {
+	if err := cleanupPartialSnapshotsFn(ctx, st, cfg.HostID, cfg.CleanupGraceDuration(), log); err != nil {
 		return fmt.Errorf("backup: partial gc: %w", err)
 	}
-	snapID, err := snapshotid.New()
+	snapID, err := snapshotIDNewFn()
 	if err != nil {
 		return err
 	}
@@ -72,19 +97,19 @@ func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, recipients 
 	var dirEntries []manifest.DirEntry
 
 	for _, root := range cfg.Backup.SourceRoots {
-		rootAbs, err := filepath.Abs(root)
+		rootAbs, err := pathAbsFn(root)
 		if err != nil {
 			return fmt.Errorf("backup: root %q: %w", root, err)
 		}
-		matcher, err := ignore.Compile(rootAbs, cfg.Backup.Excludes, cfg.Backup.Includes)
+		matcher, err := ignoreCompileFn(rootAbs, cfg.Backup.Excludes, cfg.Backup.Includes)
 		if err != nil {
 			return fmt.Errorf("backup: ignore %q: %w", rootAbs, err)
 		}
-		walkErr := filepath.WalkDir(rootAbs, func(path string, d fs.DirEntry, err error) error {
+		walkErr := walkDirFn(rootAbs, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
-			rel, err := filepath.Rel(rootAbs, path)
+			rel, err := relPathFn(rootAbs, path)
 			if err != nil {
 				return err
 			}
@@ -118,7 +143,7 @@ func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, recipients 
 				return err
 			}
 			if info.Mode().Type()&fs.ModeSymlink != 0 {
-				tgt, err := os.Readlink(path)
+				tgt, err := readlinkFn(path)
 				if err != nil {
 					log.Debug("backup: read symlink", "path", path, "err", err)
 					return nil
@@ -127,7 +152,7 @@ func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, recipients 
 					jobs = append(jobs, walkJob{rootAbs: rootAbs, relSlash: relSlash, fullPath: path, info: info, symlink: true, linkTgt: tgt})
 					return nil
 				}
-				info2, err := os.Stat(path)
+				info2, err := statFn(path)
 				if err != nil {
 					log.Debug("backup: stat symlink target", "path", path, "err", err)
 					return nil
@@ -224,13 +249,13 @@ func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, recipients 
 		return fmt.Errorf("backup: upload: %w", err)
 	}
 
-	hostOS := runtime.GOOS
+	hostOS := runtimeGOOSFn()
 	switch hostOS {
 	case "linux", "darwin", "windows":
 	default:
 		hostOS = "linux"
 	}
-	started := time.Now().UTC().Format(time.RFC3339)
+	started := nowUTCFn().Format(time.RFC3339)
 
 	var plainTotal, objectTotal int64
 	for _, f := range files {
@@ -244,7 +269,7 @@ func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, recipients 
 		HostID:      cfg.HostID,
 		HostOS:      hostOS,
 		CreatedAt:   started,
-		CompletedAt: time.Now().UTC().Format(time.RFC3339),
+		CompletedAt: nowUTCFn().Format(time.RFC3339),
 		Tool:        manifest.ToolInfo{Name: version.Name, Version: version.Version},
 		Compression: manifest.CompressionInfo{Algorithm: "zstd", Level: zstdDataLevel},
 		Encryption: manifest.EncryptionInfo{
@@ -262,11 +287,11 @@ func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, recipients 
 			BytesObjectTotal: objectTotal,
 		},
 	}
-	raw, err := manifest.MarshalJSONForManifest(m)
+	raw, err := marshalManifestFn(m)
 	if err != nil {
 		return fmt.Errorf("backup: marshal manifest: %w", err)
 	}
-	blob, err := envelope.Encrypt(raw, recipients)
+	blob, err := encryptManifestFn(raw, recipients)
 	if err != nil {
 		return fmt.Errorf("backup: encrypt manifest: %w", err)
 	}
@@ -274,7 +299,7 @@ func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, recipients 
 		return fmt.Errorf("backup: put manifest: %w", err)
 	}
 
-	if err := RebuildIndex(ctx, st, cfg.HostID, recipients, sc, log); err != nil {
+	if err := rebuildIndexFn(ctx, st, cfg.HostID, recipients, sc, log); err != nil {
 		return fmt.Errorf("backup: index: %w", err)
 	}
 	log.Info("backup complete", "snapshot_id", snapID, "files", len(files))
@@ -283,9 +308,9 @@ func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, recipients 
 
 func uploadRegular(ctx context.Context, st *s3store.Store, hostID, snapID string, j walkJob, recipients []age.Recipient, sc string, log *slog.Logger) (manifest.FileEntry, error) {
 	_ = log
-	objectID := uuid.New().String()
+	objectID := newUUIDFn()
 	key := paths.ObjectKey(hostID, snapID, objectID)
-	f, err := os.Open(j.fullPath)
+	f, err := openFileFn(j.fullPath)
 	if err != nil {
 		return manifest.FileEntry{}, fmt.Errorf("open %s: %w", j.fullPath, err)
 	}
@@ -293,7 +318,7 @@ func uploadRegular(ctx context.Context, st *s3store.Store, hostID, snapID string
 
 	h := sha256.New()
 	tee := io.TeeReader(f, h)
-	pr, err := envelope.EncryptReader(tee, recipients, zstdDataLevel)
+	pr, err := encryptReaderFn(tee, recipients, zstdDataLevel)
 	if err != nil {
 		return manifest.FileEntry{}, err
 	}

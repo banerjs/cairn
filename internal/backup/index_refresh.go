@@ -16,6 +16,13 @@ import (
 	"filippo.io/age"
 )
 
+var (
+	parseSnapshotTimeFn = paths.ParseSnapshotTime
+	marshalIndexFn      = manifest.MarshalIndexJSON
+	encryptIndexFn      = envelope.Encrypt
+	nowUTCIndexFn       = func() time.Time { return time.Now().UTC() }
+)
+
 // RebuildIndex lists committed snapshots (manifest.age present) and overwrites hosts/<host>/index.age.
 //
 // Per-object manifest stats are left zero except snapshot_id and created_at parsed from the id;
@@ -40,7 +47,7 @@ func RebuildIndex(ctx context.Context, st *s3store.Store, hostID string, recipie
 			continue
 		}
 		seen[sid] = struct{}{}
-		ts, err := paths.ParseSnapshotTime(sid)
+		ts, err := parseSnapshotTimeFn(sid)
 		if err != nil {
 			log.Warn("index: skip bad snapshot id", "id", sid)
 			continue
@@ -59,14 +66,14 @@ func RebuildIndex(ctx context.Context, st *s3store.Store, hostID string, recipie
 	ix := &manifest.Index{
 		Schema:    manifest.IndexSchemaV1,
 		HostID:    hostID,
-		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
+		UpdatedAt: nowUTCIndexFn().Format(time.RFC3339),
 		Snapshots: snaps,
 	}
-	raw, err := manifest.MarshalIndexJSON(ix)
+	raw, err := marshalIndexFn(ix)
 	if err != nil {
 		return err
 	}
-	blob, err := envelope.Encrypt(raw, recipients)
+	blob, err := encryptIndexFn(raw, recipients)
 	if err != nil {
 		return err
 	}

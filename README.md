@@ -123,4 +123,4 @@ Windows Task Scheduler: run `cairn.exe backup C:\Users\you\AppData\Roaming\cairn
 
 ## License
 
-See repository license file (if present).
+[MIT](LICENSE)

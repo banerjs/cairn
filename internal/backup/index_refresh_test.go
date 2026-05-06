@@ -43,7 +43,7 @@ func TestRebuildIndex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 	b, err := io.ReadAll(rc)
 	if err != nil || len(b) < 10 {
 		t.Fatalf("index object: %v len %d", err, len(b))

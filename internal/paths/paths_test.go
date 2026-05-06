@@ -96,4 +96,3 @@ func TestParseSnapshotTime_FormatBounds(t *testing.T) {
 		t.Fatalf("year %d", ts.Year())
 	}
 }
-

@@ -30,7 +30,7 @@ func TestRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, rc); err != nil {
 		t.Fatal(err)

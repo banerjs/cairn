@@ -26,13 +26,9 @@ func NewStore(t *testing.T, bucket string) (st *s3store.Store, cleanup func()) {
 		Credentials: credentials.NewStaticCredentialsProvider(
 			"AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "",
 		),
-		EndpointResolverWithOptions: aws.EndpointResolverWithOptionsFunc(
-			func(service, region string, opts ...interface{}) (aws.Endpoint, error) {
-				return aws.Endpoint{URL: ts.URL}, nil
-			},
-		),
 	}
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String(ts.URL)
 		o.UsePathStyle = true
 	})
 	ctx := context.Background()

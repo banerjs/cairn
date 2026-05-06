@@ -97,6 +97,9 @@ func TestEncryptReader_DefaultLevel(t *testing.T) {
 		t.Fatal(err)
 	}
 	out, err := Decrypt(cipher, ids)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if string(out) != "hi" {
 		t.Fatalf("got %q", out)
 	}
@@ -122,7 +125,7 @@ func TestDecryptReader(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 	b, err := io.ReadAll(rc)
 	if err != nil || string(b) != "decrypt reader" {
 		t.Fatalf("got %q err %v", b, err)

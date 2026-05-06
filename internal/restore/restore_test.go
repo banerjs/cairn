@@ -86,7 +86,7 @@ source_roots = [%q]
 	m := &manifest.Manifest{
 		Schema: manifest.SchemaV1, SnapshotID: snapID, HostID: cfg.HostID, HostOS: "linux",
 		CreatedAt: "2026-01-01T00:00:00Z", CompletedAt: "2026-01-01T00:00:01Z",
-		Tool: manifest.ToolInfo{Name: "cairn", Version: "t"},
+		Tool:        manifest.ToolInfo{Name: "cairn", Version: "t"},
 		Compression: manifest.CompressionInfo{Algorithm: "zstd", Level: 3},
 		Encryption: manifest.EncryptionInfo{
 			Algorithm: "age", RecipientType: "mlkem768x25519", Recipients: cfg.Encryption.Recipients,

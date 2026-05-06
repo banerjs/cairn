@@ -7,6 +7,9 @@ on:
 
 jobs:
   test:
+    permissions:
+      contents: read
+      id-token: write # Codecov OIDC (public repo uploads without CODECOV_TOKEN)
     strategy:
       fail-fast: false
       matrix:
@@ -30,6 +33,7 @@ jobs:
         with:
           files: coverage.out
           fail_ci_if_error: false
+          use_oidc: true
 
   lint:
     runs-on: ubuntu-latest

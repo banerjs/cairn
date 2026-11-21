@@ -218,7 +218,7 @@ Authoritative annotated skeleton: **`examples/config.toml`**.
 Core commands (see **`README.md`** for precise help text and any flags added since this snapshot):
 
 ```text
-cairn backup    <config.toml> [--storage-class CLASS] [--parallelism N] [-v|-vv]
+cairn backup    <config.toml> [--storage-class CLASS] [--parallelism N] [--dry-run] [-v|-vv]
 cairn restore   <snapshot-id> --target DIR [--config PATH] [--parallelism N] [-v|-vv]
 cairn snapshots [--host HOSTNAME] [--config PATH] [-v|-vv]
 cairn verify    <snapshot-id> [--sample N] [--config PATH] [-v|-vv]

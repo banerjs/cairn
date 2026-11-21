@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -81,31 +82,31 @@ func TestRun_EarlyHookErrors(t *testing.T) {
 	cleanupPartialSnapshotsFn = func(context.Context, partialStore, string, time.Duration, *slog.Logger) error {
 		return errors.New("gc")
 	}
-	if err := Run(ctx, cfg, st, recips, "", 0, log); err == nil || !strings.Contains(err.Error(), "partial gc") {
+	if err := Run(ctx, cfg, st, recips, "", 0, false, log); err == nil || !strings.Contains(err.Error(), "partial gc") {
 		t.Fatalf("err=%v", err)
 	}
 	cleanupPartialSnapshotsFn = CleanupPartialSnapshots
 
 	snapshotIDNewFn = func() (string, error) { return "", errors.New("sid") }
-	if err := Run(ctx, cfg, st, recips, "", 0, log); err == nil || !strings.Contains(err.Error(), "sid") {
+	if err := Run(ctx, cfg, st, recips, "", 0, false, log); err == nil || !strings.Contains(err.Error(), "sid") {
 		t.Fatalf("err=%v", err)
 	}
 	snapshotIDNewFn = snapshotid.New
 
 	pathAbsFn = func(string) (string, error) { return "", errors.New("abs") }
-	if err := Run(ctx, cfg, st, recips, "", 0, log); err == nil || !strings.Contains(err.Error(), "root") {
+	if err := Run(ctx, cfg, st, recips, "", 0, false, log); err == nil || !strings.Contains(err.Error(), "root") {
 		t.Fatalf("err=%v", err)
 	}
 	pathAbsFn = filepath.Abs
 
 	ignoreCompileFn = func(string, []string, []string) (*ignore.Matcher, error) { return nil, errors.New("ign") }
-	if err := Run(ctx, cfg, st, recips, "", 0, log); err == nil || !strings.Contains(err.Error(), "ignore") {
+	if err := Run(ctx, cfg, st, recips, "", 0, false, log); err == nil || !strings.Contains(err.Error(), "ignore") {
 		t.Fatalf("err=%v", err)
 	}
 	ignoreCompileFn = ignore.Compile
 
 	walkDirFn = func(string, fs.WalkDirFunc) error { return errors.New("walk") }
-	if err := Run(ctx, cfg, st, recips, "", 0, log); err == nil || !strings.Contains(err.Error(), "walk") {
+	if err := Run(ctx, cfg, st, recips, "", 0, false, log); err == nil || !strings.Contains(err.Error(), "walk") {
 		t.Fatalf("err=%v", err)
 	}
 }
@@ -120,13 +121,13 @@ func TestRun_ManifestAndIndexHookErrorsAndHostOSFallback(t *testing.T) {
 	ctx := context.Background()
 
 	marshalManifestFn = func(*manifest.Manifest) ([]byte, error) { return nil, errors.New("marshal") }
-	if err := Run(ctx, cfg, st, recips, "", 0, log); err == nil || !strings.Contains(err.Error(), "marshal manifest") {
+	if err := Run(ctx, cfg, st, recips, "", 0, false, log); err == nil || !strings.Contains(err.Error(), "marshal manifest") {
 		t.Fatalf("err=%v", err)
 	}
 	marshalManifestFn = manifest.MarshalJSONForManifest
 
 	encryptManifestFn = func([]byte, []age.Recipient) ([]byte, error) { return nil, errors.New("enc") }
-	if err := Run(ctx, cfg, st, recips, "", 0, log); err == nil || !strings.Contains(err.Error(), "encrypt manifest") {
+	if err := Run(ctx, cfg, st, recips, "", 0, false, log); err == nil || !strings.Contains(err.Error(), "encrypt manifest") {
 		t.Fatalf("err=%v", err)
 	}
 	encryptManifestFn = envelope.Encrypt
@@ -134,7 +135,7 @@ func TestRun_ManifestAndIndexHookErrorsAndHostOSFallback(t *testing.T) {
 	rebuildIndexFn = func(context.Context, *s3store.Store, string, []age.Recipient, string, *slog.Logger) error {
 		return errors.New("idx")
 	}
-	if err := Run(ctx, cfg, st, recips, "", 0, log); err == nil || !strings.Contains(err.Error(), "index") {
+	if err := Run(ctx, cfg, st, recips, "", 0, false, log); err == nil || !strings.Contains(err.Error(), "index") {
 		t.Fatalf("err=%v", err)
 	}
 	rebuildIndexFn = RebuildIndex
@@ -146,7 +147,7 @@ func TestRun_ManifestAndIndexHookErrorsAndHostOSFallback(t *testing.T) {
 		}
 		return nil, errors.New("stop")
 	}
-	if err := Run(ctx, cfg, st, recips, "", 0, log); err == nil || !strings.Contains(err.Error(), "marshal manifest") {
+	if err := Run(ctx, cfg, st, recips, "", 0, false, log); err == nil || !strings.Contains(err.Error(), "marshal manifest") {
 		t.Fatalf("err=%v", err)
 	}
 }
@@ -230,7 +231,7 @@ func TestRun_SymlinkAndFilterBranches(t *testing.T) {
 	st, cleanup := s3test.NewStore(t, "bk-symlink-branches")
 	defer cleanup()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	if err := Run(context.Background(), cfg, st, recips, "", 2, log); err != nil {
+	if err := Run(context.Background(), cfg, st, recips, "", 2, false, log); err != nil {
 		t.Fatal(err)
 	}
 
@@ -238,7 +239,7 @@ func TestRun_SymlinkAndFilterBranches(t *testing.T) {
 	cfg2.Backup.FollowSymlinks = ptrBool(true)
 	st2, cleanup2 := s3test.NewStore(t, "bk-symlink-follow")
 	defer cleanup2()
-	if err := Run(context.Background(), cfg2, st2, recips2, "STANDARD_IA", 1, log); err != nil {
+	if err := Run(context.Background(), cfg2, st2, recips2, "STANDARD_IA", 1, false, log); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -262,13 +263,13 @@ func TestRun_ReadlinkAndStatSymlinkErrors(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	readlinkFn = func(string) (string, error) { return "", errors.New("readlink") }
-	if err := Run(context.Background(), cfg, st, recips, "", 1, log); err != nil {
+	if err := Run(context.Background(), cfg, st, recips, "", 1, false, log); err != nil {
 		t.Fatal(err)
 	}
 
 	readlinkFn = os.Readlink
 	statFn = func(string) (os.FileInfo, error) { return nil, errors.New("stat") }
-	if err := Run(context.Background(), cfg, st, recips, "", 1, log); err != nil {
+	if err := Run(context.Background(), cfg, st, recips, "", 1, false, log); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -311,7 +312,7 @@ func TestRun_WalkCallbackBranches(t *testing.T) {
 		_ = fn(filepath.Join(root, "x"), nil, errors.New("walk-cb"))
 		return errors.New("walk-cb")
 	}
-	if err := Run(ctx, cfg, st, recips, "", 1, log); err == nil || !strings.Contains(err.Error(), "walk") {
+	if err := Run(ctx, cfg, st, recips, "", 1, false, log); err == nil || !strings.Contains(err.Error(), "walk") {
 		t.Fatalf("err=%v", err)
 	}
 
@@ -320,14 +321,14 @@ func TestRun_WalkCallbackBranches(t *testing.T) {
 		defer func() { relPathFn = filepath.Rel }()
 		return fn(filepath.Join(root, "x"), stubDirEnt{isDir: true, info: stubInfo{mode: fs.ModeDir}}, nil)
 	}
-	if err := Run(ctx, cfg, st, recips, "", 1, log); err == nil || !strings.Contains(err.Error(), "walk") {
+	if err := Run(ctx, cfg, st, recips, "", 1, false, log); err == nil || !strings.Contains(err.Error(), "walk") {
 		t.Fatalf("err=%v", err)
 	}
 
 	walkDirFn = func(root string, fn fs.WalkDirFunc) error {
 		return fn(filepath.Join(root, "d"), stubDirEnt{isDir: true, iErr: errors.New("info"), info: stubInfo{mode: fs.ModeDir}}, nil)
 	}
-	if err := Run(ctx, cfg, st, recips, "", 1, log); err == nil || !strings.Contains(err.Error(), "walk") {
+	if err := Run(ctx, cfg, st, recips, "", 1, false, log); err == nil || !strings.Contains(err.Error(), "walk") {
 		t.Fatalf("err=%v", err)
 	}
 
@@ -336,7 +337,7 @@ func TestRun_WalkCallbackBranches(t *testing.T) {
 		return nil
 	}
 	cfg.Backup.Excludes = []string{"*.me"}
-	if err := Run(ctx, cfg, st, recips, "", 1, log); err != nil {
+	if err := Run(ctx, cfg, st, recips, "", 1, false, log); err != nil {
 		t.Fatal(err)
 	}
 	cfg.Backup.Excludes = nil
@@ -344,7 +345,7 @@ func TestRun_WalkCallbackBranches(t *testing.T) {
 	walkDirFn = func(root string, fn fs.WalkDirFunc) error {
 		return fn(filepath.Join(root, "f"), stubDirEnt{isDir: false, iErr: errors.New("info"), info: stubInfo{mode: 0}}, nil)
 	}
-	if err := Run(ctx, cfg, st, recips, "", 1, log); err == nil || !strings.Contains(err.Error(), "walk") {
+	if err := Run(ctx, cfg, st, recips, "", 1, false, log); err == nil || !strings.Contains(err.Error(), "walk") {
 		t.Fatalf("err=%v", err)
 	}
 
@@ -353,7 +354,7 @@ func TestRun_WalkCallbackBranches(t *testing.T) {
 		_ = fn(filepath.Join(root, "nonreg"), stubDirEnt{isDir: false, info: stubInfo{mode: fs.ModeDir}}, nil)
 		return nil
 	}
-	if err := Run(ctx, cfg, st, recips, "", 1, log); err != nil {
+	if err := Run(ctx, cfg, st, recips, "", 1, false, log); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -371,7 +372,7 @@ func TestRun_UploadErrorAndPutManifestError(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	encryptReaderFn = func(io.Reader, []age.Recipient, int) (io.Reader, error) { return nil, errors.New("enc-reader") }
-	if err := Run(context.Background(), cfg, st, recips, "", 1, log); err == nil || !strings.Contains(err.Error(), "upload") {
+	if err := Run(context.Background(), cfg, st, recips, "", 1, false, log); err == nil || !strings.Contains(err.Error(), "upload") {
 		t.Fatalf("err=%v", err)
 	}
 
@@ -390,8 +391,78 @@ func TestRun_UploadErrorAndPutManifestError(t *testing.T) {
 	})
 	badStore := s3store.NewWithClient(badClient, "b")
 	cleanupPartialSnapshotsFn = func(context.Context, partialStore, string, time.Duration, *slog.Logger) error { return nil }
-	if err := Run(context.Background(), cfg2, badStore, recips2, "", 1, log); err == nil || !strings.Contains(err.Error(), "put manifest") {
+	if err := Run(context.Background(), cfg2, badStore, recips2, "", 1, false, log); err == nil || !strings.Contains(err.Error(), "put manifest") {
 		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestRun_DryRun_PrintsPathsWithoutUploading(t *testing.T) {
+	t.Cleanup(resetRunHooks)
+	src := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(src, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "b.txt"), []byte("b"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "sub", "a.txt"), []byte("a"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, recips := backupCfg(t, src)
+	st, cleanup := s3test.NewStore(t, "bk-dry-run")
+	defer cleanup()
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	uploadCalled := false
+	manifestCalled := false
+	indexCalled := false
+	encryptReaderFn = func(io.Reader, []age.Recipient, int) (io.Reader, error) {
+		uploadCalled = true
+		return nil, errors.New("should not upload in dry-run")
+	}
+	marshalManifestFn = func(*manifest.Manifest) ([]byte, error) {
+		manifestCalled = true
+		return nil, errors.New("should not marshal in dry-run")
+	}
+	rebuildIndexFn = func(context.Context, *s3store.Store, string, []age.Recipient, string, *slog.Logger) error {
+		indexCalled = true
+		return nil
+	}
+
+	origStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = w
+
+	runErr := Run(context.Background(), cfg, st, recips, "", 1, true, log)
+
+	_ = w.Close()
+	os.Stdout = origStdout
+	var out bytes.Buffer
+	if _, err := io.Copy(&out, r); err != nil {
+		t.Fatal(err)
+	}
+	_ = r.Close()
+
+	if runErr != nil {
+		t.Fatal(runErr)
+	}
+	if uploadCalled {
+		t.Fatal("dry-run called upload path")
+	}
+	if manifestCalled {
+		t.Fatal("dry-run called manifest path")
+	}
+	if indexCalled {
+		t.Fatal("dry-run called index rebuild")
+	}
+
+	got := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(got) != 2 || got[0] != "b.txt" || got[1] != "sub/a.txt" {
+		t.Fatalf("unexpected dry-run output: %q", out.String())
 	}
 }
 

@@ -71,7 +71,7 @@ parallelism = 2
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	ctx := context.Background()
 
-	if err := Run(ctx, cfg, st, recipients, "", 0, log); err != nil {
+	if err := Run(ctx, cfg, st, recipients, "", 0, false, log); err != nil {
 		t.Fatal(err)
 	}
 }

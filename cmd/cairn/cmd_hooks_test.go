@@ -184,7 +184,7 @@ source_roots = [%q]
 	prevB := backupRunHook
 	prevO := openStoreHook
 	openStoreHook = func(context.Context, *appcfg.Config) (*s3store.Store, error) { return nil, nil }
-	backupRunHook = func(context.Context, *appcfg.Config, *s3store.Store, []age.Recipient, string, int, *slog.Logger) error {
+	backupRunHook = func(context.Context, *appcfg.Config, *s3store.Store, []age.Recipient, string, int, bool, *slog.Logger) error {
 		return errors.New("boom")
 	}
 	defer func() {
@@ -215,7 +215,7 @@ source_roots = [%q]
 	prevB := backupRunHook
 	prevO := openStoreHook
 	openStoreHook = func(context.Context, *appcfg.Config) (*s3store.Store, error) { return nil, nil }
-	backupRunHook = func(context.Context, *appcfg.Config, *s3store.Store, []age.Recipient, string, int, *slog.Logger) error {
+	backupRunHook = func(context.Context, *appcfg.Config, *s3store.Store, []age.Recipient, string, int, bool, *slog.Logger) error {
 		return nil
 	}
 	defer func() {
@@ -224,6 +224,42 @@ source_roots = [%q]
 	}()
 	if code := run([]string{"cairn", "backup", cfgPath}); code != 0 {
 		t.Fatalf("code=%d", code)
+	}
+}
+
+func TestRun_Backup_DryRunFlag_Stubs(t *testing.T) {
+	rec := hybridRecipientLine(t)
+	root := filepath.Join(t.TempDir(), "src")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfgPath := mustWriteConfig(t, fmt.Sprintf(`
+host_id = "h"
+[s3]
+bucket = "b"
+region = "us-east-1"
+[encryption]
+recipients = [%q]
+[backup]
+source_roots = [%q]
+`, rec, root))
+	prevB := backupRunHook
+	prevO := openStoreHook
+	openStoreHook = func(context.Context, *appcfg.Config) (*s3store.Store, error) { return nil, nil }
+	var gotDryRun bool
+	backupRunHook = func(context.Context, *appcfg.Config, *s3store.Store, []age.Recipient, string, int, bool, *slog.Logger) error {
+		gotDryRun = true
+		return nil
+	}
+	defer func() {
+		backupRunHook = prevB
+		openStoreHook = prevO
+	}()
+	if code := run([]string{"cairn", "backup", cfgPath, "--dry-run"}); code != 0 {
+		t.Fatalf("code=%d", code)
+	}
+	if !gotDryRun {
+		t.Fatal("expected --dry-run to be passed to backup runner")
 	}
 }
 

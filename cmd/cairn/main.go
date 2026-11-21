@@ -119,6 +119,7 @@ func run(argv []string) int {
 		fs := newFlagSet("backup")
 		sc := fs.String("storage-class", "", "override [s3].storage_class")
 		p := fs.Int("parallelism", 0, "workers (0 = config)")
+		dry := fs.Bool("dry-run", false, "list candidate backup paths without uploading")
 		v := fs.Bool("v", false, "info logs")
 		vv := fs.Bool("vv", false, "debug logs")
 		if err := fs.Parse(argv[3:]); err != nil {
@@ -140,7 +141,7 @@ func run(argv []string) int {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
-		if err := backupRunHook(ctx, cfg, st, recips, *sc, *p, log); err != nil {
+		if err := backupRunHook(ctx, cfg, st, recips, *sc, *p, *dry, log); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
@@ -391,7 +392,7 @@ func usage() {
 	fmt.Fprintf(os.Stderr, `cairn — encrypted backups to Amazon S3
 
 Commands:
-  backup <config.toml> [--storage-class CLASS] [--parallelism N] [-v]
+  backup <config.toml> [--storage-class CLASS] [--parallelism N] [--dry-run] [-v]
   restore <snapshot-id> --target DIR [--config PATH] [--parallelism N] [-v]
   snapshots [--host HOST] [--config PATH] [-v]
   verify <snapshot-id> [--sample N] [--config PATH] [-v]

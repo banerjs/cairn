@@ -90,7 +90,7 @@ Logs default to **warn**. `-v` / `-vv` raise to info / debug. Avoid posting debu
 ## Commands
 
 ```
-cairn backup <config.toml> [--storage-class CLASS] [--parallelism N] [-v|-vv]
+cairn backup <config.toml> [--storage-class CLASS] [--parallelism N] [--dry-run] [-v|-vv]
 cairn restore <snapshot-id> --target DIR [--config PATH] [--parallelism N] [-v|-vv]
 cairn snapshots [--host HOST] [--config PATH] [-v|-vv]
 cairn verify <snapshot-id> [--sample N] [--config PATH] [-v|-vv]

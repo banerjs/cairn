@@ -12,6 +12,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
+	"sort"
 	"sync"
 	"time"
 
@@ -76,7 +78,7 @@ type walkJob struct {
 }
 
 // Run executes a full backup: GC partial snapshots, walk sources, upload payloads, commit manifest, refresh index.
-func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, recipients []age.Recipient, storageClassCLI string, parallelismOverride int, log *slog.Logger) error {
+func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, recipients []age.Recipient, storageClassCLI string, parallelismOverride int, dryRun bool, log *slog.Logger) error {
 	if err := cleanupPartialSnapshotsFn(ctx, st, cfg.HostID, cfg.CleanupGraceDuration(), log); err != nil {
 		return fmt.Errorf("backup: partial gc: %w", err)
 	}
@@ -179,6 +181,19 @@ func Run(ctx context.Context, cfg *config.Config, st *s3store.Store, recipients 
 		if walkErr != nil {
 			return fmt.Errorf("backup: walk %q: %w", rootAbs, walkErr)
 		}
+	}
+	if dryRun {
+		var relPaths []string
+		for _, j := range jobs {
+			relPaths = append(relPaths, j.relSlash)
+		}
+		sort.Strings(relPaths)
+		relPaths = slices.Compact(relPaths)
+		for _, relPath := range relPaths {
+			fmt.Println(relPath)
+		}
+		log.Info("backup dry run complete", "paths", len(relPaths))
+		return nil
 	}
 
 	jobCh := make(chan walkJob)
